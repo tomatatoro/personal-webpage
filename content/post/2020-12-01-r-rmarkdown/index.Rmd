@@ -6,10 +6,6 @@ categories: ["R"]
 tags: ["R Markdown", "plot", "regression"]
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse = TRUE)
-```
-
 Sentiment analysis is a popular text mining technique that analyzes the underlying sentiment of a text and tells whether the sentiment is positive, negative, or neutral. It offers another helpful metric that can help businesses understand public opinion of their product or service.
 
 To demonstrate, I conduct a simple sentiment analysis in R using review data from the Apple app store. I'm a fan of the webtoon app Tapas, having published comics on it before, so I'm curious to know what people think of the app.

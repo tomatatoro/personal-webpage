@@ -1,49 +1,225 @@
 ---
-title: "Hello R Markdown"
-author: "Frida Gomam"
-date: 2020-12-01T21:13:14-05:00
+title: "Analyzing App Reviews in R"
+author: "Tato Lu"
+date: "10/24/2021"
 categories: ["R"]
 tags: ["R Markdown", "plot", "regression"]
 ---
 
 
 
-<div id="r-markdown" class="section level1">
-<h1>R Markdown</h1>
-<p>This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <a href="http://rmarkdown.rstudio.com" class="uri">http://rmarkdown.rstudio.com</a>.</p>
-<p>You can embed an R code chunk like this:</p>
-<pre class="r"><code>summary(cars)
-##      speed           dist       
-##  Min.   : 4.0   Min.   :  2.00  
-##  1st Qu.:12.0   1st Qu.: 26.00  
-##  Median :15.0   Median : 36.00  
-##  Mean   :15.4   Mean   : 42.98  
-##  3rd Qu.:19.0   3rd Qu.: 56.00  
-##  Max.   :25.0   Max.   :120.00
-fit &lt;- lm(dist ~ speed, data = cars)
-fit
-## 
-## Call:
-## lm(formula = dist ~ speed, data = cars)
-## 
-## Coefficients:
-## (Intercept)        speed  
-##     -17.579        3.932</code></pre>
+<p>Sentiment analysis is a popular text mining technique that analyzes the underlying sentiment of a text and tells whether the sentiment is positive, negative, or neutral. It offers another helpful metric that can help businesses understand public opinion of their product or service.</p>
+<p>To demonstrate, I conduct a simple sentiment analysis in R using review data from the Apple app store. I’m a fan of the webtoon app Tapas, having published comics on it before, so I’m curious to know what people think of the app.</p>
+<div id="setup" class="section level1">
+<h1>Setup</h1>
+<p>If you want to follow along at home, the packages you need for this analysis are:
+1. appler: to import app reviews
+2. dplyr, data.table: for data manipulation
+3.
+(<em>disclaimer: the App Store API only allows users to download the latest 500 reviews</em>)</p>
+<p>First, let’s take a look at the data we’re working with. The appler packages allows us to retrieve the 500 latest app reviews for a given app and geography. I decided to focus on US reviews for the Tapas app.</p>
+<pre class="r"><code>#Get latest app reviews
+#reviews_raw &lt;- get_apple_reviews(578836126, country = &#39;us&#39;, all_results = TRUE)
+#saveRDS(reviews_raw, file = &#39;app_reviews.rds&#39;)
+reviews_raw &lt;- readRDS(&#39;app_reviews.rds&#39;)</code></pre>
+<p>We can use the nrow and ncol functions to see how big the data is.</p>
+<pre class="r"><code>nrow(reviews_raw)</code></pre>
+<pre><code>## [1] 500</code></pre>
+<pre class="r"><code>ncol(reviews_raw)</code></pre>
+<pre><code>## [1] 7</code></pre>
+<p>So we have 500 reviews, with 7 variables to work with.</p>
+<p>With R’s head function, we can take a look at the first few rows of the data. The variables we’ll be working with most are review_time, app_version, rating, and review.</p>
+<pre class="r"><code>head(reviews_raw)</code></pre>
+<pre><code>##           id         review_time            author app_version
+## 1 7941139931 2021-10-22 10:41:28    RockPunk249865      5.12.1
+## 2 7934834810 2021-10-20 14:16:21     TommyMaroon77      5.12.1
+## 3 7926951399 2021-10-18 06:12:29 read the 2nd part      5.12.0
+## 4 7926310536 2021-10-18 00:50:52      Kik me kayy?      5.12.0
+## 5 7925628744 2021-10-17 19:22:53      MistressD1va      5.12.0
+## 6 7919135442 2021-10-16 01:42:08      Vampires1994      5.12.0
+##                 title rating
+## 1 The new censorship.      1
+## 2 It’s a good app but      4
+## 3                Cost      2
+## 4       Disappointed.      1
+## 5  Great titles, but…      1
+## 6       Too expensive      2
+##                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    review
+## 1                                                                                                                                                                                                  I’ll be honest, this app is pretty good, and I love the stories in it, but they’ve started going to severe lengths with their censorship. This is honestly just infuriating, because so many artists are being forced to go over their old comics and edit them to cover up scenes that were even slightly sexual, which takes away from time they could be using to make legitimate updates. It’s really really dumb.
+## 2                                                                                                                                                                                                                                                                 I like the app the comics they have are some I’ve been looking for just that it has this problem where it shows black pages and even when I close the comic and reopen it, it’s still black then the app eventually crashes its happened three times so far and I’ve been waiting for them to fix it, so if it could be fixed it’d my experience better
+## 3 Honestly I like everything about tapas but it’s too expensive if u only read manga on the app like me then the best deal you can get is $1=4 chapters. Yeah you can earn the ink but there’s multiple problems with that, if you try to earn it through apps then it doesn’t work at all, the poles work but take a lot of time for very little reward and the ads ur only allowed a certain amount every so often. The price just makes people wanna go to pirating cites instead, I think if the prices were lowered then more people would be willing to actually pay for the content instead of stealing it online.
+## 4                                                                                                                                                                                                                                                                                                                                                                                                                            I have been using your guys for a while now. However, I have not used this app in awhile. It keeps on freezing or will stay stuck on a white screen. It’s been doing this for a few days now
+## 5                                                                                                                                                                                                                                                                                                                                                                                                                                           The app itself is garbage. It was working just fine and now it freezes or crashes constantly, forcing you to reboot it. This does not make for a pleasant reading experience.
+## 6                                                   Not all stories are free. Most you have to unlock each chapter with that you have buy from the store with real money &lt;U+0001F4B5&gt; &lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;\nSome stories are free if you wait a day to unlock another chapter. At that point you might as well wait two months or more to read an entire book.\nIf you’re a comic book fan and you feel the need to support these artists who have worked so hard to make these stories a reality then by all means go for it. Just let yourself go broke reading one book. Read responsibly.</code></pre>
 </div>
-<div id="including-plots" class="section level1">
-<h1>Including Plots</h1>
-<p>You can also embed plots. See Figure <a href="#fig:pie">1</a> for example:</p>
-<pre class="r"><code>par(mar = c(0, 1, 0, 1))
-pie(
-  c(280, 60, 20),
-  c(&#39;Sky&#39;, &#39;Sunny side of pyramid&#39;, &#39;Shady side of pyramid&#39;),
-  col = c(&#39;#0292D8&#39;, &#39;#F7EA39&#39;, &#39;#C4B632&#39;),
-  init.angle = -50, border = NA
-)</code></pre>
-<div class="figure"><span style="display:block;" id="fig:pie"></span>
-<img src="{{< blogdown/postref >}}index_files/figure-html/pie-1.png" alt="A fancy pie chart." width="672" />
-<p class="caption">
-Figure 1: A fancy pie chart.
-</p>
+<div id="exploratory-analysis" class="section level1">
+<h1>Exploratory Analysis</h1>
+<p>Before diving into the data, it’ll help to know where, or <em>when</em>, the data are coming from. Let’s plot the distribution of reviews of time.</p>
+<pre class="r"><code>reviews &lt;- reviews_raw %&gt;% 
+  mutate(review_time = as.Date(review_time), 
+         month = lubridate::floor_date(review_time, &#39;month&#39;))
+
+ggplot(reviews, aes(x = review_time)) + 
+  geom_histogram() + 
+  scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
+  ggtitle(&#39;Count of Reviews Over Time&#39;)</code></pre>
+<pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>We can also look at how ratings changed over time.</p>
+<pre class="r"><code>avg_rating &lt;- reviews %&gt;% group_by(month) %&gt;% summarize(avg_rating = mean(rating))
+ggplot(avg_rating, aes(x = month, y = avg_rating)) +
+  geom_line() +
+  scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
+  ylim(0, 5) +
+  ggtitle(&#39;Average Rating Over Time&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" />
+Interestingly, it looks like…</p>
+<p>#Investigate changes to the app version</p>
+<pre class="r"><code>reviews &lt;- reviews %&gt;% mutate(app_version_clean = str_extract(as.character(app_version), &#39;5\\.[0-9]{1,2}&#39;))
+app_ver_order &lt;- reviews %&gt;% 
+  select(app_version_clean) %&gt;%
+  unique() %&gt;% 
+  arrange(as.integer(substr(app_version_clean, 3, nchar(app_version_clean)))) %&gt;%
+  unlist()
+
+reviews &lt;- reviews %&gt;% mutate(app_version_clean = factor(app_version_clean, levels = app_ver_order))
+
+version_count &lt;- reviews %&gt;% 
+  group_by(app_version_clean, month) %&gt;% 
+  summarize(n_reviews = n()) %&gt;%
+  ungroup() %&gt;%
+  complete(app_version_clean, month, fill = list(n_reviews = 0)) %&gt;%
+  arrange(app_version_clean)</code></pre>
+<pre><code>## `summarise()` has grouped output by &#39;app_version_clean&#39;. You can override using the `.groups` argument.</code></pre>
+<pre class="r"><code>version_prop &lt;- version_count %&gt;% 
+  group_by(month) %&gt;% 
+  mutate(percentage = n_reviews/sum(n_reviews))
+
+ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) + 
+  geom_area() + 
+  scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
+  scale_y_continuous(labels = scales::percent) + 
+  ggtitle(&#39;App Versions Over Time&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>#Plot average rating by app version</p>
+<pre class="r"><code>avg_rating_by_ver &lt;- reviews %&gt;% 
+  group_by(app_version_clean) %&gt;%
+  summarize(avg_rating = mean(rating)) %&gt;%
+  arrange(app_version_clean)
+
+ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating)) + 
+  geom_bar(stat = &#39;identity&#39;) +
+  ylim(0, 5) +
+  ggtitle(&#39;Average Rating by App Version&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
 </div>
+<div id="text-mining" class="section level1">
+<h1>Text Mining</h1>
+<div id="sentiment-analysis" class="section level2">
+<h2>Sentiment Analysis</h2>
+</div>
+</div>
+<div id="clean-reviews" class="section level1">
+<h1>Clean reviews</h1>
+<pre class="r"><code>#Replace contracted words with non-contracted words (e.g., &quot;I&#39;m&quot; to &quot;I am&quot;)
+reviews &lt;- reviews %&gt;% mutate(review_cleaned = gsub(&#39;’&#39;,&#39;\&#39;&#39;,review))
+reviews &lt;- reviews %&gt;% mutate(review_cleaned = replace_contraction(review_cleaned))
+
+#Remove white spaces
+reviews &lt;- reviews %&gt;% mutate(review_cleaned = gsub(&#39;\\n&#39;,&#39; &#39;, review_cleaned))
+
+#Remove punctuation and numbers
+reviews &lt;- reviews %&gt;% mutate(review_cleaned = gsub(&#39;[[:punct:]0-9 “”‘]+&#39;,&#39; &#39;, review_cleaned))
+
+#Remove emojis
+reviews$review_cleaned &lt;- sapply(reviews$review_cleaned, function(row) iconv(row, &quot;latin1&quot;, &quot;ASCII&quot;, sub=&quot;&quot;))
+
+#Convert to lower case
+reviews &lt;- reviews %&gt;% mutate(review_cleaned = tolower(review_cleaned))
+
+#Remove stop words and other common, unhelpful words
+reviews &lt;- reviews %&gt;% mutate(review_cleaned = removeWords(review_cleaned, 
+                                                           c(&#39;app&#39;,
+                                                             &#39;tapas&#39;,
+                                                             &#39;will&#39;,
+                                                             &#39;can&#39;,
+                                                             &#39;just&#39;,
+                                                             &#39;now&#39;,
+                                                             &#39;read&#39;,
+                                                             &#39;comic&#39;,
+                                                             &#39;get&#39;,
+                                                             stopwords(kind = &#39;en&#39;))))
+
+#Lemmatize words (&quot;apples&quot; to &quot;apple&quot;)
+reviews &lt;- reviews %&gt;% mutate(review_cleaned = lemmatize_strings(review_cleaned))
+
+#Show example: before and after
+reviews$review[1]</code></pre>
+<pre><code>## [1] &quot;I’ll be honest, this app is pretty good, and I love the stories in it, but they’ve started going to severe lengths with their censorship. This is honestly just infuriating, because so many artists are being forced to go over their old comics and edit them to cover up scenes that were even slightly sexual, which takes away from time they could be using to make legitimate updates. It’s really really dumb.&quot;</code></pre>
+<pre class="r"><code>reviews$review_cleaned[1]</code></pre>
+<pre><code>## [1] &quot;honest pretty good love story start go severe length censorship honestly infuriate many artist force go old comic edit cover scene even slightly sexual take away time use make legitimate update really really dumb&quot;</code></pre>
+<p>#Get sentiment scores</p>
+<pre class="r"><code>reviews &lt;- reviews %&gt;% 
+  mutate(sentiment_score = get_sentiment(review_cleaned, method = &#39;syuzhet&#39;),
+         sentiment_direction = case_when(
+           sign(sentiment_score) &gt; 0 ~ &#39;positive&#39;,
+           sign(sentiment_score) == 0 ~ &#39;neutral&#39;,
+           sign(sentiment_score) &lt; 0 ~ &#39;negative&#39;
+           )
+         )</code></pre>
+<p>#Reviews with negative sentiment</p>
+<pre class="r"><code>reviews %&gt;% filter(sentiment_direction == &#39;negative&#39;) %&gt;% head() %&gt;% select(review, review_cleaned)</code></pre>
+<pre><code>##                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       review
+## 1                                                                                                                                                                                                    I like the app the comics they have are some I’ve been looking for just that it has this problem where it shows black pages and even when I close the comic and reopen it, it’s still black then the app eventually crashes its happened three times so far and I’ve been waiting for them to fix it, so if it could be fixed it’d my experience better
+## 2                                                                                                                                                                                                                                                                                                                                                                              The app itself is garbage. It was working just fine and now it freezes or crashes constantly, forcing you to reboot it. This does not make for a pleasant reading experience.
+## 3                                                                                                                                                                                                                                                                                                            Hi, I’ve been using this app for about five months now and I must say that the weekly cookies are annoying they say up to 1,000 cookies but I’ve never seen more than 370 ink in a cookie so I personally believe that the 1,000 ink is a scam.
+## 4                                                                                                                                                                                                                                                                                                                             My only complain about the app is that it keeps crashing whenever I try to go in and I just reinstalled it and downloaded all my favorite books that I had on it .  And it keeps on crashing every time I go into the the app.
+## 5                                                                                                                                                                                                                                                                                                                                                         When i try to open my subscribed list it keeps on showing nothing. And also the chapters i bought disappeared. I logged out and logged in again and again but to no avail. This is the worst ever.
+## 6 I’ve never gone out of my way to write a review but the app is almost unusable after the most recent update for me. I love this app, the layout is great the comics are fantastic but it crashes CONSTANTLY. Before the most recent update it would crash on me but only if I had the app open for a long time. Now it’s crashing every couple minutes. It’s impossible to read even one chapter without it black screening or quitting out. As I said before, the app itself is good but It won’t stay open for more than 3 minutes anymore which is sad.
+##                                                                                                                                                                                                                                                        review_cleaned
+## 1                                                                                                                      like comic look problem show black page even close reopen still black eventually crash happen three time far wait fix fix have experience good
+## 2                                                                                                                                                                                garbage work fine freeze crash constantly force reboot make pleasant read experience
+## 3                                                                                                                                                       hello use five month must say weekly cookie annoy say cookie never see ink cookie personally believe ink scam
+## 4                                                                                                                                                                       complain keep crash whenever try go reinstall download favorite book keep crash every time go
+## 5                                                                                                                                                                         try open subscribe list keep show nothing also chapter buy disappear log log avail bad ever
+## 6 never go way write review almost unusable recent update love layout great comic fantastic crash constantly recent update crash open long time crash every couple minute impossible even one chapter without black screen quit say good stay open minute anymore sad</code></pre>
+<p>#Reviews with positive sentiment. Sentiment is good at picking up negative reviews, but gets confused with positive reviews, especially if it has mixed language.</p>
+<pre class="r"><code>reviews %&gt;% filter(sentiment_direction == &#39;positive&#39;) %&gt;% head() %&gt;% select(review, review_cleaned)</code></pre>
+<pre><code>##                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            review
+## 1                                                                                                                                                                                                          I’ll be honest, this app is pretty good, and I love the stories in it, but they’ve started going to severe lengths with their censorship. This is honestly just infuriating, because so many artists are being forced to go over their old comics and edit them to cover up scenes that were even slightly sexual, which takes away from time they could be using to make legitimate updates. It’s really really dumb.
+## 2         Honestly I like everything about tapas but it’s too expensive if u only read manga on the app like me then the best deal you can get is $1=4 chapters. Yeah you can earn the ink but there’s multiple problems with that, if you try to earn it through apps then it doesn’t work at all, the poles work but take a lot of time for very little reward and the ads ur only allowed a certain amount every so often. The price just makes people wanna go to pirating cites instead, I think if the prices were lowered then more people would be willing to actually pay for the content instead of stealing it online.
+## 3                                                           Not all stories are free. Most you have to unlock each chapter with that you have buy from the store with real money &lt;U+0001F4B5&gt; &lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;\nSome stories are free if you wait a day to unlock another chapter. At that point you might as well wait two months or more to read an entire book.\nIf you’re a comic book fan and you feel the need to support these artists who have worked so hard to make these stories a reality then by all means go for it. Just let yourself go broke reading one book. Read responsibly.
+## 4 I love this app! I spend a majority of my time reading this. It brings a smile to me and makes my day better and more entertaining. The only thing though is as of late, when I try to select a comic to read, the app freezes and I have to constantly open and close it to try to read. When I do SUCEED I maybe get two scrolls before it freezes again and then blacks out and shuts itself down. Sometimes when I’m in the middle of reading one, it will close out as well. The app might need an update for bugs. There are times I’m not even able to read on it at all because it takes so long for it to try to work.
+## 5                                                                                                                                                                                                                                                                                                                                                                                                                                                                          I love it really but it did some glich when I got on all my stuff was reset my stories i read my ink everything in that was the day I had a lot of ink
+## 6                                                                                                                                                                                                                         Overall an amazing app to read webtoons through legit way but recently it has been crashing a lot. It has happen multiple time with no true improvement. Like I haven’t been able to open the app for last 4 days. It if the servers been down for 5 days I feel like this is something you need to inform your readers. (Updated)if you delete the app and redownload the app it works perfectly fine.
+##                                                                                                                                                                                                                                                                                                          review_cleaned
+## 1                                                                                                  honest pretty good love story start go severe length censorship honestly infuriate many artist force go old comic edit cover scene even slightly sexual take away time use make legitimate update really really dumb
+## 2 honestly like everything expensive u manga like good deal chapter yes earn ink multiple problem try earn app work pole work take lot time little reward ad ur allow certain amount every often price make people wanna go pirate cite instead think price lower people will actually pay content instead steal online
+## 3                                                                     story free unlock chapter buy store real money story free wait day unlock another chapter point may good wait two month entire book book fan feel need support artist work hard make story reality mean go let go break read one book responsibly
+## 4                                                  love spend majority time read bring smile make day good entertain thing though late try select freeze constantly open close try suceed maybe two scroll freeze black shut sometimes middle read one close good may need update bug time even able take long try work
+## 5                                                                                                                                                                                                                                                    love really glich get stuff reset story ink everything day lot ink
+## 6                                                                                              overall amaze webtoons legit way recently crash lot happen multiple time true improvement like haven t able open last day server day feel like something need inform reader update delete redownload work perfectly fine</code></pre>
+<p>#Plot proportion of positive, neutral, and negative reviews over time.</p>
+<pre class="r"><code>sent_bars &lt;- reviews %&gt;% 
+  group_by(month, sentiment_direction) %&gt;%
+  summarize(percentage = n())</code></pre>
+<pre><code>## `summarise()` has grouped output by &#39;month&#39;. You can override using the `.groups` argument.</code></pre>
+<pre class="r"><code>ggplot(sent_bars, aes(fill = sentiment_direction, x = month, y = percentage)) +  
+  geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
+  scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
+  scale_y_continuous(labels = scales::percent) + 
+  scale_fill_manual(values = c(&#39;red3&#39;, &#39;yellow3&#39;, &#39;green3&#39;)) + 
+  ggtitle(&#39;Sentiment Over Time&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
+<p>#Plot proportion of positive, neutral, and negative reviews over time.</p>
+<pre class="r"><code>sent_ver &lt;- reviews %&gt;% 
+  group_by(app_version_clean, sentiment_direction) %&gt;%
+  summarize(percentage = n())</code></pre>
+<pre><code>## `summarise()` has grouped output by &#39;app_version_clean&#39;. You can override using the `.groups` argument.</code></pre>
+<pre class="r"><code>ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
+  geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
+  scale_y_continuous(labels = scales::percent) + 
+  scale_fill_manual(values = c(&#39;red3&#39;, &#39;yellow3&#39;, &#39;green3&#39;)) + 
+  ggtitle(&#39;Sentiment by App Version&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
 </div>
