@@ -1,26 +1,30 @@
 ---
-title: "Analyzing App Reviews in R"
+title: "Text Mining - Apple App Store Reviews"
 author: "Tato Lu"
 date: "10/24/2021"
 categories: ["R"]
-tags: ["R Markdown", "plot", "regression"]
+tags: ["R Markdown", "plot", "nlp", "text mining", "sentiment analysis", "topic modeling"]
 ---
+![](images/app_store_reviews.PNG)
 
-Sentiment analysis is a popular text mining technique that analyzes the underlying sentiment of a text and tells whether the sentiment is positive, negative, or neutral. It offers another helpful metric that can help businesses understand public opinion of their product or service.
+Reviews are one of the most direct forms of customer feedback. However, it becomes more difficult to read through every comment if you have hundreds of review coming in every day. 
 
-To demonstrate, I conduct a simple sentiment analysis in R using review data from the Apple app store. I'm a fan of the webtoon app Tapas, having published comics on it before, so I'm curious to know what people think of the app.
+In this post, I'll be using **R** to analyze review data from the Apple app store. By exploring the data and leveraging text mining techniques like **sentiment analysis** and **topic modeling**, we'll be able to:
 
-# Setup
+* Visualize trends in user experience;
+* Identify "I love it, but..." reviews; and
+* Pinpoint common complaints.
 
-If you want to follow along at home, the packages you need for this analysis are:
-1. appler: to import app reviews 
-2. dplyr, data.table: for data manipulation
-3. 
-(_disclaimer: the App Store API only allows users to download the latest 500 reviews_)
+## Setup and Getting Data
+
+For those following along at home, the packages I use for this analysis are:
+
+* **appler**: to import app reviews 
+* **dplyr, data.table**: for data manipulation
 
 ```{r, include = FALSE}
 # Package names
-packages <- c('appler', 'dplyr', 'data.table', 
+packages <- c('appler', 'dplyr', 'data.table',
               'tidytext', 'syuzhet', 
               'tm', 'tidyr', 'ggplot2', 
               'textclean', 'lubridate', 'stringr',
@@ -36,34 +40,35 @@ if (any(installed_packages == FALSE)) {
 invisible(lapply(packages, library, character.only = TRUE))
 ```
 
-First, let's take a look at the data we're working with. The appler packages allows us to retrieve the 500 latest app reviews for a given app and geography. I decided to focus on US reviews for the Tapas app.
-```{r}
-#Get latest app reviews
-#reviews_raw <- get_apple_reviews(578836126, country = 'us', all_results = TRUE)
+```{r, eval = FALSE}
+reviews_raw <- get_apple_reviews(578836126, country = 'us', all_results = TRUE)
+```
+(_disclaimer: the App Store API only allows users to download the latest 500 reviews_)
+
+```{r, include = FALSE}
 #saveRDS(reviews_raw, file = 'app_reviews.rds')
 reviews_raw <- readRDS('app_reviews.rds')
 ```
 
-We can use the nrow and ncol functions to see how big the data is.
-```{r}
-nrow(reviews_raw)
-ncol(reviews_raw)
+Now that we have the data, let's see what we're cooking with!
+```{r, message = FALSE}
+dim(reviews_raw)
 ```
-So we have 500 reviews, with 7 variables to work with. 
+Using R's dim() function, we can see that we have 500 reviews and 7 variables. 
 
 ```{r, include = FALSE}
 lapply(reviews_raw, class)
 ```
 
 With R's head function, we can take a look at the first few rows of the data. The variables we'll be working with most are review_time, app_version, rating, and review.
-```{r}
+```{r, message = FALSE}
 head(reviews_raw)
 ```
 
-# Exploratory Analysis
+## Exploratory Analysis
 
 Before diving into the data, it'll help to know where, or *when*, the data are coming from. Let's plot the distribution of reviews of time.
-```{r}
+```{r, message = FALSE}
 reviews <- reviews_raw %>% 
   mutate(review_time = as.Date(review_time), 
          month = lubridate::floor_date(review_time, 'month'))
@@ -71,22 +76,26 @@ reviews <- reviews_raw %>%
 ggplot(reviews, aes(x = review_time)) + 
   geom_histogram() + 
   scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
-  ggtitle('Count of Reviews Over Time')
+  xlab('Month') +
+  ylab('Count of Reviews') +
+  ggtitle('Monthly Count of Reviews')
 ```
 
 We can also look at how ratings changed over time.
-```{r}
+```{r, message = FALSE}
 avg_rating <- reviews %>% group_by(month) %>% summarize(avg_rating = mean(rating))
 ggplot(avg_rating, aes(x = month, y = avg_rating)) +
   geom_line() +
   scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
   ylim(0, 5) +
-  ggtitle('Average Rating Over Time')
+  xlab('Month') + 
+  ylab('Average Rating') +
+  ggtitle('Monthly Average Rating')
 ```
 Interestingly, it looks like...
 
 #Investigate changes to the app version
-```{r}
+```{r, message = FALSE}
 reviews <- reviews %>% mutate(app_version_clean = str_extract(as.character(app_version), '5\\.[0-9]{1,2}'))
 app_ver_order <- reviews %>% 
   select(app_version_clean) %>%
@@ -111,11 +120,13 @@ ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) +
   geom_area() + 
   scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
   scale_y_continuous(labels = scales::percent) + 
-  ggtitle('App Versions Over Time')
+  xlab('Month') +
+  ylab('Percent of Reviews') + 
+  ggtitle('Adoption of App Versions')
 ```
 
 #Plot average rating by app version
-```{r}
+```{r, message = FALSE}
 avg_rating_by_ver <- reviews %>% 
   group_by(app_version_clean) %>%
   summarize(avg_rating = mean(rating)) %>%
@@ -124,15 +135,22 @@ avg_rating_by_ver <- reviews %>%
 ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating)) + 
   geom_bar(stat = 'identity') +
   ylim(0, 5) +
+  xlab('App Version') + 
+  ylab('Average Rating') +
   ggtitle('Average Rating by App Version')
 ```
 
-# Text Mining
+## Text Mining
 
-## Sentiment Analysis
+### Sentiment Analysis
 
+Sentiment analysis is exactly what it sounds like: analyzing a text and determining whether the underlying sentiment is positive, negative, or neutral. Of course, using robots to read human emotion is always going to have its limitations, but sentiment analysis can offer another helpful metric to help businesses understand public opinion of their product or service.
+
+For reviews, I find sentiment analysis is particularly helpful for identifying "I love it, but..." reviews. 
+
+To demonstrate, I conduct a simple sentiment analysis in R using review data from the Apple app store. I'm a fan of the webtoon app Tapas, having published comics on it before, so I'm curious to know what people think of the app. First, let's take a look at the data we're working with. The appler packages allows us to retrieve the 500 latest app reviews for a given app and geography. I decided to focus on US reviews for the Tapas app.
 # Clean reviews
-```{r}
+```{r, message = FALSE}
 #Replace contracted words with non-contracted words (e.g., "I'm" to "I am")
 reviews <- reviews %>% mutate(review_cleaned = gsub('’','\'',review))
 reviews <- reviews %>% mutate(review_cleaned = replace_contraction(review_cleaned))
@@ -171,7 +189,7 @@ reviews$review_cleaned[1]
 ```
 
 #Get sentiment scores
-```{r}
+```{r, message = FALSE}
 reviews <- reviews %>% 
   mutate(sentiment_score = get_sentiment(review_cleaned, method = 'syuzhet'),
          sentiment_direction = case_when(
@@ -183,17 +201,17 @@ reviews <- reviews %>%
 ```
 
 #Reviews with negative sentiment
-```{r}
+```{r, message = FALSE}
 reviews %>% filter(sentiment_direction == 'negative') %>% head() %>% select(review, review_cleaned)
 ```
 
 #Reviews with positive sentiment. Sentiment is good at picking up negative reviews, but gets confused with positive reviews, especially if it has mixed language.
-```{r}
+```{r, message = FALSE}
 reviews %>% filter(sentiment_direction == 'positive') %>% head() %>% select(review, review_cleaned)
 ```
 
 #Plot proportion of positive, neutral, and negative reviews over time.
-```{r}
+```{r, message = FALSE}
 sent_bars <- reviews %>% 
   group_by(month, sentiment_direction) %>%
   summarize(percentage = n())
@@ -202,12 +220,14 @@ ggplot(sent_bars, aes(fill = sentiment_direction, x = month, y = percentage)) +
   geom_bar(position = 'fill', stat = 'identity') +
   scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
   scale_y_continuous(labels = scales::percent) + 
+  xlab('Month') +
+  ylab('Percent of Reviews') + 
   scale_fill_manual(values = c('red3', 'yellow3', 'green3')) + 
-  ggtitle('Sentiment Over Time')
+  ggtitle('User Sentiment by Month')
 ```
 
 #Plot proportion of positive, neutral, and negative reviews over time.
-```{r}
+```{r, message = FALSE}
 sent_ver <- reviews %>% 
   group_by(app_version_clean, sentiment_direction) %>%
   summarize(percentage = n())
@@ -215,6 +235,10 @@ sent_ver <- reviews %>%
 ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
   geom_bar(position = 'fill', stat = 'identity') +
   scale_y_continuous(labels = scales::percent) + 
+  xlab('App Version') +
+  ylab('Percent of Reviews') + 
   scale_fill_manual(values = c('red3', 'yellow3', 'green3')) + 
-  ggtitle('Sentiment by App Version')
+  ggtitle('User Sentiment by App Version')
 ```
+
+### Topic Modeling

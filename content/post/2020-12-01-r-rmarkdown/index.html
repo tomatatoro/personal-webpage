@@ -1,33 +1,34 @@
 ---
-title: "Analyzing App Reviews in R"
+title: "Text Mining - Apple App Store Reviews"
 author: "Tato Lu"
 date: "10/24/2021"
 categories: ["R"]
-tags: ["R Markdown", "plot", "regression"]
+tags: ["R Markdown", "plot", "nlp", "text mining", "sentiment analysis", "topic modeling"]
 ---
 
 
 
-<p>Sentiment analysis is a popular text mining technique that analyzes the underlying sentiment of a text and tells whether the sentiment is positive, negative, or neutral. It offers another helpful metric that can help businesses understand public opinion of their product or service.</p>
-<p>To demonstrate, I conduct a simple sentiment analysis in R using review data from the Apple app store. I’m a fan of the webtoon app Tapas, having published comics on it before, so I’m curious to know what people think of the app.</p>
-<div id="setup" class="section level1">
-<h1>Setup</h1>
-<p>If you want to follow along at home, the packages you need for this analysis are:
-1. appler: to import app reviews
-2. dplyr, data.table: for data manipulation
-3.
-(<em>disclaimer: the App Store API only allows users to download the latest 500 reviews</em>)</p>
-<p>First, let’s take a look at the data we’re working with. The appler packages allows us to retrieve the 500 latest app reviews for a given app and geography. I decided to focus on US reviews for the Tapas app.</p>
-<pre class="r"><code>#Get latest app reviews
-#reviews_raw &lt;- get_apple_reviews(578836126, country = &#39;us&#39;, all_results = TRUE)
-#saveRDS(reviews_raw, file = &#39;app_reviews.rds&#39;)
-reviews_raw &lt;- readRDS(&#39;app_reviews.rds&#39;)</code></pre>
-<p>We can use the nrow and ncol functions to see how big the data is.</p>
-<pre class="r"><code>nrow(reviews_raw)</code></pre>
-<pre><code>## [1] 500</code></pre>
-<pre class="r"><code>ncol(reviews_raw)</code></pre>
-<pre><code>## [1] 7</code></pre>
-<p>So we have 500 reviews, with 7 variables to work with.</p>
+<p><img src="images/app_store_reviews.PNG" /></p>
+<p>Reviews are one of the most direct forms of customer feedback. However, it becomes more difficult to read through every comment if you have hundreds of review coming in every day.</p>
+<p>In this post, I’ll be using <strong>R</strong> to analyze review data from the Apple app store. By exploring the data and leveraging text mining techniques like <strong>sentiment analysis</strong> and <strong>topic modeling</strong>, we’ll be able to:</p>
+<ul>
+<li>Visualize trends in user experience;</li>
+<li>Identify “I love it, but…” reviews; and</li>
+<li>Pinpoint common complaints.</li>
+</ul>
+<div id="setup-and-getting-data" class="section level2">
+<h2>Setup and Getting Data</h2>
+<p>For those following along at home, the packages I use for this analysis are:</p>
+<ul>
+<li><strong>appler</strong>: to import app reviews</li>
+<li><strong>dplyr, data.table</strong>: for data manipulation</li>
+</ul>
+<pre class="r"><code>reviews_raw &lt;- get_apple_reviews(578836126, country = &#39;us&#39;, all_results = TRUE)</code></pre>
+<p>(<em>disclaimer: the App Store API only allows users to download the latest 500 reviews</em>)</p>
+<p>Now that we have the data, let’s see what we’re cooking with!</p>
+<pre class="r"><code>dim(reviews_raw)</code></pre>
+<pre><code>## [1] 500   7</code></pre>
+<p>Using R’s dim() function, we can see that we have 500 reviews and 7 variables.</p>
 <p>With R’s head function, we can take a look at the first few rows of the data. The variables we’ll be working with most are review_time, app_version, rating, and review.</p>
 <pre class="r"><code>head(reviews_raw)</code></pre>
 <pre><code>##           id         review_time            author app_version
@@ -52,8 +53,8 @@ reviews_raw &lt;- readRDS(&#39;app_reviews.rds&#39;)</code></pre>
 ## 5                                                                                                                                                                                                                                                                                                                                                                                                                                           The app itself is garbage. It was working just fine and now it freezes or crashes constantly, forcing you to reboot it. This does not make for a pleasant reading experience.
 ## 6                                                   Not all stories are free. Most you have to unlock each chapter with that you have buy from the store with real money &lt;U+0001F4B5&gt; &lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;\nSome stories are free if you wait a day to unlock another chapter. At that point you might as well wait two months or more to read an entire book.\nIf you’re a comic book fan and you feel the need to support these artists who have worked so hard to make these stories a reality then by all means go for it. Just let yourself go broke reading one book. Read responsibly.</code></pre>
 </div>
-<div id="exploratory-analysis" class="section level1">
-<h1>Exploratory Analysis</h1>
+<div id="exploratory-analysis" class="section level2">
+<h2>Exploratory Analysis</h2>
 <p>Before diving into the data, it’ll help to know where, or <em>when</em>, the data are coming from. Let’s plot the distribution of reviews of time.</p>
 <pre class="r"><code>reviews &lt;- reviews_raw %&gt;% 
   mutate(review_time = as.Date(review_time), 
@@ -62,17 +63,20 @@ reviews_raw &lt;- readRDS(&#39;app_reviews.rds&#39;)</code></pre>
 ggplot(reviews, aes(x = review_time)) + 
   geom_histogram() + 
   scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
-  ggtitle(&#39;Count of Reviews Over Time&#39;)</code></pre>
-<pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+  xlab(&#39;Month&#39;) +
+  ylab(&#39;Count of Reviews&#39;) +
+  ggtitle(&#39;Monthly Count of Reviews&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
 <p>We can also look at how ratings changed over time.</p>
 <pre class="r"><code>avg_rating &lt;- reviews %&gt;% group_by(month) %&gt;% summarize(avg_rating = mean(rating))
 ggplot(avg_rating, aes(x = month, y = avg_rating)) +
   geom_line() +
   scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
   ylim(0, 5) +
-  ggtitle(&#39;Average Rating Over Time&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" />
+  xlab(&#39;Month&#39;) + 
+  ylab(&#39;Average Rating&#39;) +
+  ggtitle(&#39;Monthly Average Rating&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" />
 Interestingly, it looks like…</p>
 <p>#Investigate changes to the app version</p>
 <pre class="r"><code>reviews &lt;- reviews %&gt;% mutate(app_version_clean = str_extract(as.character(app_version), &#39;5\\.[0-9]{1,2}&#39;))
@@ -89,9 +93,9 @@ version_count &lt;- reviews %&gt;%
   summarize(n_reviews = n()) %&gt;%
   ungroup() %&gt;%
   complete(app_version_clean, month, fill = list(n_reviews = 0)) %&gt;%
-  arrange(app_version_clean)</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;app_version_clean&#39;. You can override using the `.groups` argument.</code></pre>
-<pre class="r"><code>version_prop &lt;- version_count %&gt;% 
+  arrange(app_version_clean)
+
+version_prop &lt;- version_count %&gt;% 
   group_by(month) %&gt;% 
   mutate(percentage = n_reviews/sum(n_reviews))
 
@@ -99,8 +103,10 @@ ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) +
   geom_area() + 
   scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
   scale_y_continuous(labels = scales::percent) + 
-  ggtitle(&#39;App Versions Over Time&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+  xlab(&#39;Month&#39;) +
+  ylab(&#39;Percent of Reviews&#39;) + 
+  ggtitle(&#39;Adoption of App Versions&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
 <p>#Plot average rating by app version</p>
 <pre class="r"><code>avg_rating_by_ver &lt;- reviews %&gt;% 
   group_by(app_version_clean) %&gt;%
@@ -110,17 +116,19 @@ ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) +
 ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating)) + 
   geom_bar(stat = &#39;identity&#39;) +
   ylim(0, 5) +
+  xlab(&#39;App Version&#39;) + 
+  ylab(&#39;Average Rating&#39;) +
   ggtitle(&#39;Average Rating by App Version&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
 </div>
-<div id="text-mining" class="section level1">
-<h1>Text Mining</h1>
-<div id="sentiment-analysis" class="section level2">
-<h2>Sentiment Analysis</h2>
-</div>
-</div>
-<div id="clean-reviews" class="section level1">
-<h1>Clean reviews</h1>
+<div id="text-mining" class="section level2">
+<h2>Text Mining</h2>
+<div id="sentiment-analysis" class="section level3">
+<h3>Sentiment Analysis</h3>
+<p>Sentiment analysis is exactly what it sounds like: analyzing a text and determining whether the underlying sentiment is positive, negative, or neutral. Of course, using robots to read human emotion is always going to have its limitations, but sentiment analysis can offer another helpful metric to help businesses understand public opinion of their product or service.</p>
+<p>For reviews, I find sentiment analysis is particularly helpful for identifying “I love it, but…” reviews.</p>
+<p>To demonstrate, I conduct a simple sentiment analysis in R using review data from the Apple app store. I’m a fan of the webtoon app Tapas, having published comics on it before, so I’m curious to know what people think of the app. First, let’s take a look at the data we’re working with. The appler packages allows us to retrieve the 500 latest app reviews for a given app and geography. I decided to focus on US reviews for the Tapas app.
+# Clean reviews</p>
 <pre class="r"><code>#Replace contracted words with non-contracted words (e.g., &quot;I&#39;m&quot; to &quot;I am&quot;)
 reviews &lt;- reviews %&gt;% mutate(review_cleaned = gsub(&#39;’&#39;,&#39;\&#39;&#39;,review))
 reviews &lt;- reviews %&gt;% mutate(review_cleaned = replace_contraction(review_cleaned))
@@ -202,24 +210,32 @@ reviews$review[1]</code></pre>
 <p>#Plot proportion of positive, neutral, and negative reviews over time.</p>
 <pre class="r"><code>sent_bars &lt;- reviews %&gt;% 
   group_by(month, sentiment_direction) %&gt;%
-  summarize(percentage = n())</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;month&#39;. You can override using the `.groups` argument.</code></pre>
-<pre class="r"><code>ggplot(sent_bars, aes(fill = sentiment_direction, x = month, y = percentage)) +  
+  summarize(percentage = n())
+
+ggplot(sent_bars, aes(fill = sentiment_direction, x = month, y = percentage)) +  
   geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
   scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
   scale_y_continuous(labels = scales::percent) + 
+  xlab(&#39;Month&#39;) +
+  ylab(&#39;Percent of Reviews&#39;) + 
   scale_fill_manual(values = c(&#39;red3&#39;, &#39;yellow3&#39;, &#39;green3&#39;)) + 
-  ggtitle(&#39;Sentiment Over Time&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
+  ggtitle(&#39;User Sentiment by Month&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
 <p>#Plot proportion of positive, neutral, and negative reviews over time.</p>
 <pre class="r"><code>sent_ver &lt;- reviews %&gt;% 
   group_by(app_version_clean, sentiment_direction) %&gt;%
-  summarize(percentage = n())</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;app_version_clean&#39;. You can override using the `.groups` argument.</code></pre>
-<pre class="r"><code>ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
+  summarize(percentage = n())
+
+ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
   geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
   scale_y_continuous(labels = scales::percent) + 
+  xlab(&#39;App Version&#39;) +
+  ylab(&#39;Percent of Reviews&#39;) + 
   scale_fill_manual(values = c(&#39;red3&#39;, &#39;yellow3&#39;, &#39;green3&#39;)) + 
-  ggtitle(&#39;Sentiment by App Version&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
+  ggtitle(&#39;User Sentiment by App Version&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-16-1.png" width="672" /></p>
+</div>
+<div id="topic-modeling" class="section level3">
+<h3>Topic Modeling</h3>
+</div>
 </div>

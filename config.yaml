@@ -1,7 +1,7 @@
 theme: "hugo-PaperMod"
 baseURL: http://tato-lu.netlify.app/
 languageCode: en-us
-title: Tato Lu's R Blog
+title: Tato Lu
 
 markup:
   goldmark:
