@@ -9,11 +9,11 @@ tags: ["R Markdown", "plot", "nlp", "text mining", "sentiment analysis", "topic 
 
 Reviews are one of the most direct forms of customer feedback. However, it becomes more difficult to read through every comment if you have hundreds of review coming in every day. 
 
-In this post, I'll be using **R** to analyze review data from the Apple app store. By exploring the data and leveraging text mining techniques like **sentiment analysis** and **topic modeling**, we'll be able to:
+In this post, I'll be using **R** to analyze review data from the Apple app store. Along the way, we'll leverage text mining techniques like **sentiment analysis** and **keyword extraction**. By the end of this post, we'll be able to do the following:
 
 * Visualize trends in user experience;
 * Identify "I love it, but..." reviews; and
-* Pinpoint common complaints.
+* Pinpoint common complaints and evaluate whether 
 
 ## Setup and Getting Data
 
@@ -24,79 +24,86 @@ For those following along at home, the packages I use for this analysis are:
 
 ```{r, include = FALSE}
 # Package names
-packages <- c('appler', 'dplyr', 'data.table',
-              'tidytext', 'syuzhet', 
-              'tm', 'tidyr', 'ggplot2', 
-              'textclean', 'lubridate', 'stringr',
-              'textstem')
-
-# Install packages not yet installed
-installed_packages <- packages %in% rownames(installed.packages())
-if (any(installed_packages == FALSE)) {
-  install.packages(packages[!installed_packages])
-}
-
-# Packages loading
-invisible(lapply(packages, library, character.only = TRUE))
+library(appler)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(stringr)
+library(tidyr)
+library(tm)
+library(textclean)
+library(textstem)
+library(syuzhet)
+library(knitr)
+library(udpipe)
+library(tidytext)
+library(igraph)
+library(ggraph)
+library(ggplot2)
+library(gridExtra)
 ```
 
 ```{r, eval = FALSE}
-reviews_raw <- get_apple_reviews(578836126, country = 'us', all_results = TRUE)
+reviews <- appler::get_apple_reviews(578836126, country = 'us', all_results = TRUE)
 ```
 (_disclaimer: the App Store API only allows users to download the latest 500 reviews_)
 
 ```{r, include = FALSE}
 #saveRDS(reviews_raw, file = 'app_reviews.rds')
-reviews_raw <- readRDS('app_reviews.rds')
+reviews <- readRDS('app_reviews.rds')
 ```
 
 Now that we have the data, let's see what we're cooking with!
 ```{r, message = FALSE}
-dim(reviews_raw)
+dim(reviews)
 ```
 Using R's dim() function, we can see that we have 500 reviews and 7 variables. 
 
 ```{r, include = FALSE}
-lapply(reviews_raw, class)
+lapply(reviews, class)
 ```
 
 With R's head function, we can take a look at the first few rows of the data. The variables we'll be working with most are review_time, app_version, rating, and review.
 ```{r, message = FALSE}
-head(reviews_raw)
+head(reviews)
 ```
 
 ## Exploratory Analysis
 
 Before diving into the data, it'll help to know where, or *when*, the data are coming from. Let's plot the distribution of reviews of time.
 ```{r, message = FALSE}
-reviews <- reviews_raw %>% 
+reviews <- reviews %>% 
   mutate(review_time = as.Date(review_time), 
          month = lubridate::floor_date(review_time, 'month'))
 
 ggplot(reviews, aes(x = review_time)) + 
   geom_histogram() + 
   scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
-  xlab('Month') +
-  ylab('Count of Reviews') +
+  labs(x = 'Month', y = 'Count of Reviews') +
+  theme_light() +
   ggtitle('Monthly Count of Reviews')
 ```
 
 We can also look at how ratings changed over time.
 ```{r, message = FALSE}
-avg_rating <- reviews %>% group_by(month) %>% summarize(avg_rating = mean(rating))
+avg_rating <- reviews %>% 
+  group_by(month) %>% 
+  summarize(avg_rating = mean(rating))
+
 ggplot(avg_rating, aes(x = month, y = avg_rating)) +
   geom_line() +
   scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
   ylim(0, 5) +
-  xlab('Month') + 
-  ylab('Average Rating') +
+  labs(x = 'Month', y = 'Average Rating') + 
+  theme_light() +
   ggtitle('Monthly Average Rating')
 ```
 Interestingly, it looks like...
 
 #Investigate changes to the app version
 ```{r, message = FALSE}
-reviews <- reviews %>% mutate(app_version_clean = str_extract(as.character(app_version), '5\\.[0-9]{1,2}'))
+reviews <- reviews %>% mutate(app_version_clean = stringr::str_extract(as.character(app_version), '5\\.[0-9]{1,2}'))
+
 app_ver_order <- reviews %>% 
   select(app_version_clean) %>%
   unique() %>% 
@@ -109,7 +116,7 @@ version_count <- reviews %>%
   group_by(app_version_clean, month) %>% 
   summarize(n_reviews = n()) %>%
   ungroup() %>%
-  complete(app_version_clean, month, fill = list(n_reviews = 0)) %>%
+  tidyr::complete(app_version_clean, month, fill = list(n_reviews = 0)) %>%
   arrange(app_version_clean)
 
 version_prop <- version_count %>% 
@@ -120,8 +127,9 @@ ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) +
   geom_area() + 
   scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
   scale_y_continuous(labels = scales::percent) + 
-  xlab('Month') +
-  ylab('Percent of Reviews') + 
+  scale_fill_discrete(name = 'App Version') + 
+  labs(x = 'Month', y = 'Percent of Reviews') +
+  theme_minimal() +
   ggtitle('Adoption of App Versions')
 ```
 
@@ -135,8 +143,8 @@ avg_rating_by_ver <- reviews %>%
 ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating)) + 
   geom_bar(stat = 'identity') +
   ylim(0, 5) +
-  xlab('App Version') + 
-  ylab('Average Rating') +
+  labs(x = 'App Version', y = 'Average Rating') + 
+  theme_light() + 
   ggtitle('Average Rating by App Version')
 ```
 
@@ -151,47 +159,29 @@ For reviews, I find sentiment analysis is particularly helpful for identifying "
 To demonstrate, I conduct a simple sentiment analysis in R using review data from the Apple app store. I'm a fan of the webtoon app Tapas, having published comics on it before, so I'm curious to know what people think of the app. First, let's take a look at the data we're working with. The appler packages allows us to retrieve the 500 latest app reviews for a given app and geography. I decided to focus on US reviews for the Tapas app.
 # Clean reviews
 ```{r, message = FALSE}
-#Replace contracted words with non-contracted words (e.g., "I'm" to "I am")
-reviews <- reviews %>% mutate(review_cleaned = gsub('’','\'',review))
-reviews <- reviews %>% mutate(review_cleaned = replace_contraction(review_cleaned))
+cleanText <- function(x){
+  temp <- gsub('’','\'',x)
+  temp <- replace_contraction(temp) #Replace contracted words with non-contracted words (e.g., "I'm" to "I am")
+  temp <- gsub('\\n',' ', temp)
+  temp <- gsub('[[:punct:]0-9 “”‘]+',' ', temp)
+  temp <- sapply(temp, function(i) iconv(i, "latin1", "ASCII", sub=""))
+  temp <- tolower(temp)
+  temp <- lemmatize_strings(temp)
+  temp <- removeWords(temp, stopwords(kind = 'en'))
+}
 
-#Remove white spaces
-reviews <- reviews %>% mutate(review_cleaned = gsub('\\n',' ', review_cleaned))
+reviews <- reviews %>% mutate(review_cleaned = cleanText(review))
+```
 
-#Remove punctuation and numbers
-reviews <- reviews %>% mutate(review_cleaned = gsub('[[:punct:]0-9 “”‘]+',' ', review_cleaned))
-
-#Remove emojis
-reviews$review_cleaned <- sapply(reviews$review_cleaned, function(row) iconv(row, "latin1", "ASCII", sub=""))
-
-#Convert to lower case
-reviews <- reviews %>% mutate(review_cleaned = tolower(review_cleaned))
-
-#Remove stop words and other common, unhelpful words
-reviews <- reviews %>% mutate(review_cleaned = removeWords(review_cleaned, 
-                                                           c('app',
-                                                             'tapas',
-                                                             'will',
-                                                             'can',
-                                                             'just',
-                                                             'now',
-                                                             'read',
-                                                             'comic',
-                                                             'get',
-                                                             stopwords(kind = 'en'))))
-
-#Lemmatize words ("apples" to "apple")
-reviews <- reviews %>% mutate(review_cleaned = lemmatize_strings(review_cleaned))
-
+```{r, echo = FALSE}
 #Show example: before and after
-reviews$review[1]
-reviews$review_cleaned[1]
+knitr::kable(data.frame(Raw = reviews$review[1], Cleaned = reviews$review_cleaned[1]))
 ```
 
 #Get sentiment scores
 ```{r, message = FALSE}
 reviews <- reviews %>% 
-  mutate(sentiment_score = get_sentiment(review_cleaned, method = 'syuzhet'),
+  mutate(sentiment_score = syuzhet::get_sentiment(review_cleaned, method = 'syuzhet'),
          sentiment_direction = case_when(
            sign(sentiment_score) > 0 ~ 'positive',
            sign(sentiment_score) == 0 ~ 'neutral',
@@ -202,12 +192,12 @@ reviews <- reviews %>%
 
 #Reviews with negative sentiment
 ```{r, message = FALSE}
-reviews %>% filter(sentiment_direction == 'negative') %>% head() %>% select(review, review_cleaned)
+knitr::kable(reviews %>% filter(sentiment_direction == 'negative') %>% head() %>% select(review, review_cleaned))
 ```
 
 #Reviews with positive sentiment. Sentiment is good at picking up negative reviews, but gets confused with positive reviews, especially if it has mixed language.
 ```{r, message = FALSE}
-reviews %>% filter(sentiment_direction == 'positive') %>% head() %>% select(review, review_cleaned)
+knitr::kable(reviews %>% filter(sentiment_direction == 'positive') %>% head() %>% select(review, review_cleaned))
 ```
 
 #Plot proportion of positive, neutral, and negative reviews over time.
@@ -220,9 +210,9 @@ ggplot(sent_bars, aes(fill = sentiment_direction, x = month, y = percentage)) +
   geom_bar(position = 'fill', stat = 'identity') +
   scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
   scale_y_continuous(labels = scales::percent) + 
-  xlab('Month') +
-  ylab('Percent of Reviews') + 
-  scale_fill_manual(values = c('red3', 'yellow3', 'green3')) + 
+  scale_fill_manual(name = 'Sentiment', values = c('red3', 'yellow3', 'green3')) + 
+  labs(x = 'Month', y = 'Percent of Reviews') +
+  theme_light() + 
   ggtitle('User Sentiment by Month')
 ```
 
@@ -235,10 +225,96 @@ sent_ver <- reviews %>%
 ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
   geom_bar(position = 'fill', stat = 'identity') +
   scale_y_continuous(labels = scales::percent) + 
-  xlab('App Version') +
-  ylab('Percent of Reviews') + 
-  scale_fill_manual(values = c('red3', 'yellow3', 'green3')) + 
+  scale_fill_manual(name = 'Sentiment', values = c('red3', 'yellow3', 'green3')) + 
+  labs(x = 'App Version', y = 'Percent of Reviews') +
   ggtitle('User Sentiment by App Version')
 ```
 
 ### Topic Modeling
+
+```{r}
+complaints <- reviews %>%
+  unnest_tokens(output = sentence, input = review, token = 'sentences') %>%
+  select(rating, sentence) %>%
+  mutate(sentence_cleaned = cleanText(sentence)) %>%
+  mutate(sentiment_score = get_sentiment(sentence_cleaned)) %>%
+  filter(rating < 3 | sentiment_score < 0)
+```
+
+```{r}
+kable(head(complaints %>% filter(rating < 3) %>% select(rating, sentence)))
+```
+```{r}
+kable(head(complaints %>% filter(rating >= 3) %>% select(rating, sentence)))
+```
+
+```{r, message = FALSE}
+udmodel <- udpipe::udpipe_download_model(language = 'english')
+udmodel_english <- udpipe::udpipe_load_model(udmodel$file_model)
+```
+
+```{r}
+review_vector <- as.character(reviews %>% filter(rating < 3) %>% select(review_cleaned))
+complaint_detail <- udpipe_annotate(udmodel_english, review_vector)
+complaint_data <- as.data.frame(complaint_detail)
+```
+
+```{r}
+## Co-occurrences: How frequent do words follow one another even if we would skip 2 words in between
+stats <- udpipe::cooccurrence(x = complaint_data$lemma, relevant = complaint_data$upos %in% c('NOUN', 'ADJ', 'VERB'), skipgram = 2)
+```
+
+```{r}
+wordnetwork <- head(stats, 50)
+wordnetwork <- graph_from_data_frame(wordnetwork)
+ggraph(wordnetwork, layout = "fr") +
+  geom_edge_link(aes(width = cooc, edge_alpha = cooc), edge_colour = "red") +
+  geom_node_text(aes(label = name), size = 4) +
+  theme(legend.position = "none") +
+  labs(title = "Cooccurrences within 3 words distance", subtitle = "Nouns, Adjectives, and Verbs")
+```
+```{r}
+stats <- keywords_rake(x = complaint_data, term = 'lemma', group = 'doc_id', relevant = complaint_data$upos %in% c('NOUN', 'ADJ', 'VERB'))
+
+stats_chart <- stats %>% 
+  head(20) %>% 
+  arrange(rake) %>%
+  mutate(keyword = factor(keyword, levels = keyword))
+
+ggplot(stats_chart, aes(x = keyword, y = rake)) + 
+  geom_col() + 
+  theme_light() + 
+  coord_flip() + 
+  labs(x = 'RAKE', y = 'Keyword') + 
+  ggtitle('Most common keywords identified by RAKE')
+```
+
+```{r, message = FALSE}
+reviews <- reviews %>% mutate(crash_flag = grepl('crash|freez|bug|fix', review_cleaned))
+
+crash_month <- reviews %>% 
+  group_by(month, crash_flag) %>%
+  summarize(percentage = n())
+
+crash_ver <- reviews %>% 
+  group_by(app_version_clean, crash_flag) %>%
+  summarize(percentage = n())
+
+plot1 <- ggplot(crash_month, aes(fill = crash_flag, x = month, y = percentage)) +  
+  geom_bar(position = 'fill', stat = 'identity') +
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
+  scale_y_continuous(labels = scales::percent) + 
+  scale_fill_manual(name = 'Mention Crash', values = c('gray', 'red3')) + 
+  labs(x = 'Month', y = 'Percent of Reviews') +
+  theme_light() + 
+  ggtitle('% of Reviews that Mention Crash, Freeze, Bug, or Fix')
+
+plot2 <- ggplot(crash_ver, aes(fill = crash_flag, x = app_version_clean, y = percentage)) +  
+  geom_bar(position = 'fill', stat = 'identity') +
+  scale_y_continuous(labels = scales::percent) + 
+  scale_fill_manual(name = 'Mention Crash', values = c('gray', 'red3')) + 
+  labs(x = 'App Version', y = 'Percent of Reviews') +
+  theme_light() + 
+
+grid.arrange(plot1, plot2, nrow = 2)
+```
