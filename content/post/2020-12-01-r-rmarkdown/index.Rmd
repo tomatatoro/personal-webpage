@@ -227,6 +227,7 @@ ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = perc
   scale_y_continuous(labels = scales::percent) + 
   scale_fill_manual(name = 'Sentiment', values = c('red3', 'yellow3', 'green3')) + 
   labs(x = 'App Version', y = 'Percent of Reviews') +
+  theme_light() + 
   ggtitle('User Sentiment by App Version')
 ```
 
@@ -314,7 +315,7 @@ plot2 <- ggplot(crash_ver, aes(fill = crash_flag, x = app_version_clean, y = per
   scale_y_continuous(labels = scales::percent) + 
   scale_fill_manual(name = 'Mention Crash', values = c('gray', 'red3')) + 
   labs(x = 'App Version', y = 'Percent of Reviews') +
-  theme_light() + 
+  theme_light()
 
 grid.arrange(plot1, plot2, nrow = 2)
 ```
