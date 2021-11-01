@@ -1,5 +1,6 @@
 theme: "hugo-PaperMod"
 baseURL: http://tato-lu.netlify.app/
+paginate: 5
 languageCode: en-us
 title: Tato Lu
 
@@ -7,3 +8,23 @@ markup:
   goldmark:
     renderer:
       unsafe: true
+
+
+params:
+  author: "Tato Lu"
+  description: "Economist and data diver. I use R, Python, Excel, and Tableau."
+  
+  ShowShareButtons: true
+  ShowPostNavLinks: true
+  ShowCodeCopyButtons: true
+  
+socialIcons:
+  - name: github
+    url: "https://github.com/"
+    
+menu:
+  main:
+    - identifier: about
+      name: about
+      url: /about/
+      weight = 10
