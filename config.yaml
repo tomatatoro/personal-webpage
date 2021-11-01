@@ -9,22 +9,21 @@ markup:
     renderer:
       unsafe: true
 
-
 params:
-  author: "Tato Lu"
-  description: "Economist and data diver. I use R, Python, Excel, and Tableau."
-  
-  ShowShareButtons: true
-  ShowPostNavLinks: true
-  ShowCodeCopyButtons: true
-  
-socialIcons:
-  - name: github
-    url: "https://github.com/"
+  homeInfoParams:
+    Title: "Tato"
+    Content: >
+      Test
+      - **test**
     
-menu:
-  main:
-    - identifier: about
-      name: about
-      url: /about/
-      weight: 10
+  socialIcons:
+    - name: github
+      url: "https://github.com/tomatatoro"
+      
+      
+  menu:
+    main:
+      - identifier: about
+        name: about
+        url: /about/
+        weight: 10
