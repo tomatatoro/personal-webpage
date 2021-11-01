@@ -1,155 +1,65 @@
 ---
-title: "Text Mining App Store Reviews [R, NLP]"
+title: "Text Mining App Store Reviews"
 author: "Tato Lu"
 date: "10/24/2021"
 categories: ["R"]
-tags: ["R Markdown", "plot", "nlp", "text mining", "sentiment analysis", "topic modeling"]
+tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling"]
 ---
 
 
 
 <p><img src="images/app_store_reviews.PNG" /></p>
-<p>Reviews are one of the most direct forms of customer feedback. However, it becomes more difficult to read through every comment if you have hundreds of review coming in every day.</p>
-<p>In this post, I’ll be using <strong>R</strong> to analyze review data from the Apple app store. Along the way, we’ll leverage text mining techniques like <strong>sentiment analysis</strong> and <strong>keyword extraction</strong>. By the end of this post, we’ll be able to do the following:</p>
-<ul>
-<li>Visualize trends in user experience;</li>
-<li>Identify “I love it, but…” reviews; and</li>
-<li>Pinpoint common complaints and evaluate whether</li>
-</ul>
+<p><strong>Q:</strong> We published our app on the App Store, and the reviews are flooding in! It’s easy enough to read through one or two reviews, but I just don’t have the time to go through hundreds. How can we summarize these reviews and take advantage of this data?</p>
+<p><strong>A:</strong> Luckily, there are plenty of machine learning tools to tackle unstructured data like text. We can leverage exploratory data analysis (“EDA”), as well as text mining techniques like sentiment analysis and keyword extraction to (1) visualize patterns in the data, (2) understand public opinion of the product/service, and (3) identify common complaints.</p>
+<p>In this post, I’ll demonstrate how we can use R to download, analyze, and visualize key patterns in Apple App Store reviews. As a lover of webtoons, I’m a big fan of <a href="https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126">Tapas</a>, so I’ll be analyzing the reviews for their app!</p>
 <div id="setup-and-getting-data" class="section level2">
 <h2>Setup and Getting Data</h2>
-<p>For those following along at home, the packages I use for this analysis are:</p>
-<ul>
-<li><strong>appler</strong>: to import app reviews</li>
-<li><strong>dplyr, data.table</strong>: for data manipulation</li>
-</ul>
-<pre class="r"><code>reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_results = TRUE)</code></pre>
-<p>(<em>disclaimer: the App Store API only allows users to download the latest 500 reviews</em>)</p>
-<p>Now that we have the data, let’s see what we’re cooking with!</p>
+<p>To start, we’ll use the <strong>appler</strong> package to download the latest user reviews for Tapas. (<em>disclaimer: the App Store API only allows users to download the latest 500 reviews. If you have thousands of reviews, you can still apply the same analyses!</em>)</p>
+<pre class="r"><code># App store ID can be found in the app store URL: https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126
+reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_results = TRUE)</code></pre>
+<p>Great! Now we can use the dim() and head() functions to look at how large the dataset is, and what it looks like.</p>
 <pre class="r"><code>dim(reviews)</code></pre>
 <pre><code>## [1] 500   7</code></pre>
-<p>Using R’s dim() function, we can see that we have 500 reviews and 7 variables.</p>
-<p>With R’s head function, we can take a look at the first few rows of the data. The variables we’ll be working with most are review_time, app_version, rating, and review.</p>
-<pre class="r"><code>head(reviews)</code></pre>
+<pre class="r"><code>head(reviews, 3)</code></pre>
 <pre><code>##           id         review_time            author app_version
 ## 1 7941139931 2021-10-22 10:41:28    RockPunk249865      5.12.1
 ## 2 7934834810 2021-10-20 14:16:21     TommyMaroon77      5.12.1
 ## 3 7926951399 2021-10-18 06:12:29 read the 2nd part      5.12.0
-## 4 7926310536 2021-10-18 00:50:52      Kik me kayy?      5.12.0
-## 5 7925628744 2021-10-17 19:22:53      MistressD1va      5.12.0
-## 6 7919135442 2021-10-16 01:42:08      Vampires1994      5.12.0
 ##                 title rating
 ## 1 The new censorship.      1
 ## 2 It’s a good app but      4
 ## 3                Cost      2
-## 4       Disappointed.      1
-## 5  Great titles, but…      1
-## 6       Too expensive      2
 ##                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    review
 ## 1                                                                                                                                                                                                  I’ll be honest, this app is pretty good, and I love the stories in it, but they’ve started going to severe lengths with their censorship. This is honestly just infuriating, because so many artists are being forced to go over their old comics and edit them to cover up scenes that were even slightly sexual, which takes away from time they could be using to make legitimate updates. It’s really really dumb.
 ## 2                                                                                                                                                                                                                                                                 I like the app the comics they have are some I’ve been looking for just that it has this problem where it shows black pages and even when I close the comic and reopen it, it’s still black then the app eventually crashes its happened three times so far and I’ve been waiting for them to fix it, so if it could be fixed it’d my experience better
-## 3 Honestly I like everything about tapas but it’s too expensive if u only read manga on the app like me then the best deal you can get is $1=4 chapters. Yeah you can earn the ink but there’s multiple problems with that, if you try to earn it through apps then it doesn’t work at all, the poles work but take a lot of time for very little reward and the ads ur only allowed a certain amount every so often. The price just makes people wanna go to pirating cites instead, I think if the prices were lowered then more people would be willing to actually pay for the content instead of stealing it online.
-## 4                                                                                                                                                                                                                                                                                                                                                                                                                            I have been using your guys for a while now. However, I have not used this app in awhile. It keeps on freezing or will stay stuck on a white screen. It’s been doing this for a few days now
-## 5                                                                                                                                                                                                                                                                                                                                                                                                                                           The app itself is garbage. It was working just fine and now it freezes or crashes constantly, forcing you to reboot it. This does not make for a pleasant reading experience.
-## 6                                                   Not all stories are free. Most you have to unlock each chapter with that you have buy from the store with real money &lt;U+0001F4B5&gt; &lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;\nSome stories are free if you wait a day to unlock another chapter. At that point you might as well wait two months or more to read an entire book.\nIf you’re a comic book fan and you feel the need to support these artists who have worked so hard to make these stories a reality then by all means go for it. Just let yourself go broke reading one book. Read responsibly.</code></pre>
+## 3 Honestly I like everything about tapas but it’s too expensive if u only read manga on the app like me then the best deal you can get is $1=4 chapters. Yeah you can earn the ink but there’s multiple problems with that, if you try to earn it through apps then it doesn’t work at all, the poles work but take a lot of time for very little reward and the ads ur only allowed a certain amount every so often. The price just makes people wanna go to pirating cites instead, I think if the prices were lowered then more people would be willing to actually pay for the content instead of stealing it online.</code></pre>
+<p>The dataset has 500 rows, with 7 variables. The variables we’ll be working with most are review_time, app_version, rating, and review.</p>
 </div>
-<div id="exploratory-analysis" class="section level2">
-<h2>Exploratory Analysis</h2>
-<p>Before diving into the data, it’ll help to know where, or <em>when</em>, the data are coming from. Let’s plot the distribution of reviews of time.</p>
-<pre class="r"><code>reviews &lt;- reviews %&gt;% 
-  mutate(review_time = as.Date(review_time), 
-         month = lubridate::floor_date(review_time, &#39;month&#39;))
-
-ggplot(reviews, aes(x = review_time)) + 
-  geom_histogram() + 
-  scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
-  labs(x = &#39;Month&#39;, y = &#39;Count of Reviews&#39;) +
-  theme_light() +
-  ggtitle(&#39;Monthly Count of Reviews&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
-<p>We can also look at how ratings changed over time.</p>
-<pre class="r"><code>avg_rating &lt;- reviews %&gt;% 
-  group_by(month) %&gt;% 
-  summarize(avg_rating = mean(rating))
-
-ggplot(avg_rating, aes(x = month, y = avg_rating)) +
-  geom_line() +
-  scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
-  ylim(0, 5) +
-  labs(x = &#39;Month&#39;, y = &#39;Average Rating&#39;) + 
-  theme_light() +
-  ggtitle(&#39;Monthly Average Rating&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" />
-Interestingly, it looks like…</p>
-<p>#Investigate changes to the app version</p>
-<pre class="r"><code>reviews &lt;- reviews %&gt;% mutate(app_version_clean = stringr::str_extract(as.character(app_version), &#39;5\\.[0-9]{1,2}&#39;))
-
-app_ver_order &lt;- reviews %&gt;% 
-  select(app_version_clean) %&gt;%
-  unique() %&gt;% 
-  arrange(as.integer(substr(app_version_clean, 3, nchar(app_version_clean)))) %&gt;%
-  unlist()
-
-reviews &lt;- reviews %&gt;% mutate(app_version_clean = factor(app_version_clean, levels = app_ver_order))
-
-version_count &lt;- reviews %&gt;% 
-  group_by(app_version_clean, month) %&gt;% 
-  summarize(n_reviews = n()) %&gt;%
-  ungroup() %&gt;%
-  tidyr::complete(app_version_clean, month, fill = list(n_reviews = 0)) %&gt;%
-  arrange(app_version_clean)
-
-version_prop &lt;- version_count %&gt;% 
-  group_by(month) %&gt;% 
-  mutate(percentage = n_reviews/sum(n_reviews))
-
-ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) + 
-  geom_area() + 
-  scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
-  scale_y_continuous(labels = scales::percent) + 
-  scale_fill_discrete(name = &#39;App Version&#39;) + 
-  labs(x = &#39;Month&#39;, y = &#39;Percent of Reviews&#39;) +
-  theme_minimal() +
-  ggtitle(&#39;Adoption of App Versions&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
-<p>#Plot average rating by app version</p>
-<pre class="r"><code>avg_rating_by_ver &lt;- reviews %&gt;% 
-  group_by(app_version_clean) %&gt;%
-  summarize(avg_rating = mean(rating)) %&gt;%
-  arrange(app_version_clean)
-
-ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating)) + 
-  geom_bar(stat = &#39;identity&#39;) +
-  ylim(0, 5) +
-  labs(x = &#39;App Version&#39;, y = &#39;Average Rating&#39;) + 
-  theme_light() + 
-  ggtitle(&#39;Average Rating by App Version&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
+<div id="exploratory-data-analysis-what-patterns-are-in-the-data" class="section level2">
+<h2>Exploratory Data Analysis: What patterns are in the data?</h2>
+<p>Before diving into any analysis, let’s do some EDA get a sense of what we’re working with. The graph below plots the distribution of reviews over time.
+<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people reviewed the Tapas app in recent months. Is this indicative of fewer users in recent months? What if we looked at the app’s average rating over time?</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>The Tapas app’s average rating was steadily growing up until July 2021, at which point the rating dips. By September, the average rating was essentially back where it started. So what happened in July-September 2021 that caused the rating to fall?</p>
+<p>#Investigate changes to the app version
+<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p>If we plot version rollouts over time, we see that version 5.10 (the dark blue area) was the most prevalent version in September 2021, when ratings dipped. Sure enough, when we plot average ratings by app version, we can see that version 5.10 had the lowest rating since 5.5.</p>
+<p>#Plot average rating by app version
+<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>So with EDA, we discovered that <strong>ratings were growing steadily until version 5.9, and then the Tapas app experienced a dramatic dip with version 5.10.</strong> Now that we know the <em>what</em>, we can think about the <em>why</em>: stakeholders at Tapas would want to know <em>why</em> the dip happened, so they can avoid a similar situation in the future.</p>
 </div>
 <div id="text-mining" class="section level2">
 <h2>Text Mining</h2>
+<p>So far we’ve only been looking at ratings, but there’s a whole gold-mine of information we’ve yet to touch: the reviews! There are hundreds of ways you can analyze text data. I’ll focus on two popular approaches: <strong>sentiment analysis</strong> and <strong>keyword extraction</strong>.</p>
 <div id="sentiment-analysis" class="section level3">
 <h3>Sentiment Analysis</h3>
-<p>Sentiment analysis is exactly what it sounds like: analyzing a text and determining whether the underlying sentiment is positive, negative, or neutral. Of course, using robots to read human emotion is always going to have its limitations, but sentiment analysis can offer another helpful metric to help businesses understand public opinion of their product or service.</p>
-<p>For reviews, I find sentiment analysis is particularly helpful for identifying “I love it, but…” reviews.</p>
-<p>To demonstrate, I conduct a simple sentiment analysis in R using review data from the Apple app store. I’m a fan of the webtoon app Tapas, having published comics on it before, so I’m curious to know what people think of the app. First, let’s take a look at the data we’re working with. The appler packages allows us to retrieve the 500 latest app reviews for a given app and geography. I decided to focus on US reviews for the Tapas app.
-# Clean reviews</p>
-<pre class="r"><code>cleanText &lt;- function(x){
-  temp &lt;- gsub(&#39;’&#39;,&#39;\&#39;&#39;,x)
-  temp &lt;- replace_contraction(temp) #Replace contracted words with non-contracted words (e.g., &quot;I&#39;m&quot; to &quot;I am&quot;)
-  temp &lt;- gsub(&#39;\\n&#39;,&#39; &#39;, temp)
-  temp &lt;- gsub(&#39;[[:punct:]0-9 “”‘]+&#39;,&#39; &#39;, temp)
-  temp &lt;- sapply(temp, function(i) iconv(i, &quot;latin1&quot;, &quot;ASCII&quot;, sub=&quot;&quot;))
-  temp &lt;- tolower(temp)
-  temp &lt;- lemmatize_strings(temp)
-  temp &lt;- removeWords(temp, stopwords(kind = &#39;en&#39;))
-}
-
-reviews &lt;- reviews %&gt;% mutate(review_cleaned = cleanText(review))</code></pre>
+<p>Sentiment analysis is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. Sentiment analysis can offer another helpful metric to help businesses understand public opinion of their product or service.</p>
+<p>Before we can run our sentiment analysis, we need to clean the reviews. This often involves stripping punctuation, removing uninformative stop words (e.g., “the”, “a”, “and”), as well as other cleaning steps. Eventually, our “cleaned” reviews will look like this:</p>
 <table>
 <colgroup>
-<col width="60%" />
-<col width="39%" />
+<col width="63%" />
+<col width="36%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -159,12 +69,36 @@ reviews &lt;- reviews %&gt;% mutate(review_cleaned = cleanText(review))</code></
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">I’ll be honest, this app is pretty good, and I love the stories in it, but they’ve started going to severe lengths with their censorship. This is honestly just infuriating, because so many artists are being forced to go over their old comics and edit them to cover up scenes that were even slightly sexual, which takes away from time they could be using to make legitimate updates. It’s really really dumb.</td>
-<td align="left">will honest app pretty good love story start go severe length censorship honestly just infuriate many artist force go old comic edit cover scene even slightly sexual take away time can use make legitimate update really really dumb</td>
+<td align="left">The app itself is garbage. It was working just fine and now it freezes or crashes constantly, forcing you to reboot it. This does not make for a pleasant reading experience.</td>
+<td align="left">app garbage work just fine now freeze crash constantly force reboot make pleasant read experience</td>
 </tr>
 </tbody>
 </table>
-<p>#Get sentiment scores</p>
+<p>Now, using the “syuzhet” package in R, we can calculate a sentiment score for each cleaned review. To illustrate how this works, consider the example review above. The “get_sentiment()” function will assign a score for each word in the cleaned review.</p>
+<pre class="r"><code>example_words &lt;- example %&gt;% 
+  unnest_tokens(output = word, input = review_cleaned, token = &#39;words&#39;) %&gt;% 
+  select(word)
+
+example_sentiment &lt;- example_words %&gt;% mutate(sentiment_score = syuzhet::get_sentiment(word))
+
+example_sentiment</code></pre>
+<pre><code>##          word sentiment_score
+## 1         app            0.00
+## 2     garbage           -0.50
+## 3        work            0.25
+## 4        just            0.00
+## 5        fine            0.25
+## 6         now            0.00
+## 7      freeze           -0.40
+## 8       crash           -0.75
+## 9  constantly            0.00
+## 10      force           -0.60
+## 11     reboot            0.00
+## 12       make            0.00
+## 13   pleasant            1.00
+## 14       read            0.00
+## 15 experience            0.00</code></pre>
+<p>As you can see, a negative word like “garbage” has a negative score of -0.5, while a more positive word like “fine” will have a positive score of 0.25. The more negative or positive the word, the higher the magnitude of the score. So a word like “crash” is considered more negative than a word like “garbage.” The final score of the review is the total score across all words. In this case, the total score would be -0.75, indicating an overall negative sentiment. (<em>These scores are pulled from “lexicons” assembled by literary researchers. I’m using Syuzhet, (the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab)[<a href="https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6" class="uri">https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6</a>].</em>)</p>
 <pre class="r"><code>reviews &lt;- reviews %&gt;% 
   mutate(sentiment_score = syuzhet::get_sentiment(review_cleaned, method = &#39;syuzhet&#39;),
          sentiment_direction = case_when(
@@ -177,8 +111,8 @@ reviews &lt;- reviews %&gt;% mutate(review_cleaned = cleanText(review))</code></
 <pre class="r"><code>knitr::kable(reviews %&gt;% filter(sentiment_direction == &#39;negative&#39;) %&gt;% head() %&gt;% select(review, review_cleaned))</code></pre>
 <table>
 <colgroup>
-<col width="59%" />
-<col width="40%" />
+<col width="63%" />
+<col width="36%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -217,8 +151,8 @@ reviews &lt;- reviews %&gt;% mutate(review_cleaned = cleanText(review))</code></
 <pre class="r"><code>knitr::kable(reviews %&gt;% filter(sentiment_direction == &#39;positive&#39;) %&gt;% head() %&gt;% select(review, review_cleaned))</code></pre>
 <table>
 <colgroup>
-<col width="60%" />
-<col width="39%" />
+<col width="63%" />
+<col width="36%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -259,7 +193,7 @@ ggplot(sent_bars, aes(fill = sentiment_direction, x = month, y = percentage)) +
   labs(x = &#39;Month&#39;, y = &#39;Percent of Reviews&#39;) +
   theme_light() + 
   ggtitle(&#39;User Sentiment by Month&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-16-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
 <p>#Plot proportion of positive, neutral, and negative reviews over time.</p>
 <pre class="r"><code>sent_ver &lt;- reviews %&gt;% 
   group_by(app_version_clean, sentiment_direction) %&gt;%
@@ -272,7 +206,7 @@ ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = perc
   labs(x = &#39;App Version&#39;, y = &#39;Percent of Reviews&#39;) +
   theme_light() + 
   ggtitle(&#39;User Sentiment by App Version&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
 </div>
 <div id="topic-modeling" class="section level3">
 <h3>Topic Modeling</h3>
@@ -374,7 +308,7 @@ ggraph(wordnetwork, layout = &quot;fr&quot;) +
   geom_node_text(aes(label = name), size = 4) +
   theme(legend.position = &quot;none&quot;) +
   labs(title = &quot;Cooccurrences within 3 words distance&quot;, subtitle = &quot;Nouns, Adjectives, and Verbs&quot;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" width="672" /></p>
 <pre class="r"><code>stats &lt;- keywords_rake(x = complaint_data, term = &#39;lemma&#39;, group = &#39;doc_id&#39;, relevant = complaint_data$upos %in% c(&#39;NOUN&#39;, &#39;ADJ&#39;, &#39;VERB&#39;))
 
 stats_chart &lt;- stats %&gt;% 
@@ -388,7 +322,7 @@ ggplot(stats_chart, aes(x = keyword, y = rake)) +
   coord_flip() + 
   labs(x = &#39;RAKE&#39;, y = &#39;Keyword&#39;) + 
   ggtitle(&#39;Most common keywords identified by RAKE&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-25-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
 <pre class="r"><code>reviews &lt;- reviews %&gt;% mutate(crash_flag = grepl(&#39;crash|freez|bug|fix&#39;, review_cleaned))
 
 crash_month &lt;- reviews %&gt;% 
@@ -416,6 +350,6 @@ plot2 &lt;- ggplot(crash_ver, aes(fill = crash_flag, x = app_version_clean, y = 
   theme_light()
 
 grid.arrange(plot1, plot2, nrow = 2)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-26-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
 </div>
 </div>

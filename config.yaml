@@ -9,12 +9,22 @@ markup:
     renderer:
       unsafe: true
 
-params:
+menu:
+    main:
+      - identifier: about
+        name: about
+        url: /about/
+        weight: 10
+      - identifier: resume
+        name: resume
+        url: /resume/
+        weight: 10
 
+params:
   homeInfoParams:
-    Title: "Tato Lu"
+    Title: "Portfolio"
     Content: >
-      Economic consultant and data enthusiast currently working at Analysis Group. Experienced in solving analytical problems at the intersection of business, economics, and law. 
+      **Tato** is an economist and data enthusiast currently working in consulting. Experienced in solving analytical problems at the intersection of business, economics, and law. 
       
       >
       - **Technical Skills:** R, Python, SQL, Excel, and Tableau.
@@ -22,7 +32,6 @@ params:
       >
       - **Interests:** Data Visualization, Machine Learning (Clustering, Classification, Regression, NLP), Survey Design"
       
-    
   socialIcons:
     - name: github
       url: "https://github.com/tomatatoro"
@@ -30,11 +39,3 @@ params:
       url: "https://linkedin.com/in/tatolu/"
     - name: email
       url: "tatolu818@gmail.com"
-      
-      
-  menu:
-    main:
-      - identifier: about
-        name: about
-        url: /about/
-        weight: 10
