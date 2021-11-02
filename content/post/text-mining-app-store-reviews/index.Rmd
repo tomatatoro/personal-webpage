@@ -170,7 +170,7 @@ ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) +
 
 If we plot version rollouts over time, we see that version 5.10 (the dark blue area) was the most prevalent version in September 2021, when ratings dipped. Sure enough, when we plot average ratings by app version, we can see that version 5.10 had the lowest rating since version 5.5. 
 
-```{r, echo = FALSE, message = FALSE}
+```{r, echo = FALSE}
 avg_rating_by_ver <- reviews %>% 
   mutate(highlight_flag = case_when(
     app_version_clean %in% c('5.9', '5.10')  ~ T,
@@ -222,7 +222,7 @@ reviews <- reviews %>% mutate(review_cleaned = cleanText(review))
 #Show example: before and after
 example <- reviews[5,]
 ```
-![text_cleaning.png](images/text_cleaning.PNG)
+![](images/text_cleaning.PNG)
 
 Now that the text is cleaned, we can use the "syuzhet" package in R to calculate a sentiment "score" for each review. For example, words like "garbage" will get negative scores, while a word like "pleasant" gets a postive score. The total gets you to the overall score for the review.
 ```{r, include = FALSE}
@@ -233,7 +233,7 @@ example_words <- example %>%
 
 example_sentiment <- example_words %>% mutate(sentiment_score = syuzhet::get_sentiment(word))
 ```
-![sentiment_score.png](images/sentiment_score.png)
+![](images/sentiment_score.png)
 (_These scores are pulled from "lexicons" assembled by literary researchers. I'm using Syuzhet, [the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab](https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6)._)
 
 After we calculate a sentiment score for every review, we can identify "negative", "positive" or "neutral" reviews (i.e., reviews with a negative, positive, or zero sentiment score respectively). 
@@ -253,7 +253,7 @@ reviews <- reviews %>%
 ```
 So if we saw relatively poor ratings on version 5.10, we should also see more negative sentiment. Sure enough, if we plot sentiment by app version, we see exactly that. 
 
-```{r, message = FALSE}
+```{r, echo = FALSE, message = FALSE}
 sent_ver <- reviews %>% 
   group_by(app_version_clean, sentiment_direction) %>%
   summarize(percentage = n())
@@ -301,7 +301,7 @@ knitr::kable(reviews %>% filter(sentiment_direction == 'negative') %>% head() %>
 #positive examples
 knitr::kable(reviews %>% filter(sentiment_direction == 'positive') %>% head() %>% select(review, review_cleaned, sentiment_score))
 ```
-![negative_reviews.png](images/negative_reviews.png)
+![](images/negative_reviews.png)
 
 One of the users mentions "crash" and another one mentioned "ink", which is Tapas' in-app currency for purchasing premium content. The word cloud below shows some of the most common words associated with mentions of "crash," "freeze" or "bug". The other word cloud shows the most common words associated with "ink".
 

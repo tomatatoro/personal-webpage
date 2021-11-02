@@ -10,7 +10,7 @@ tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling"]
 
 <p><img src="images/app_store_reviews.PNG" /></p>
 <p><strong>Q:</strong> We published our app on the App Store, and the reviews are flooding in! It’s easy enough to read one or two reviews, but I just don’t have the time to go through hundreds. How can we summarize these reviews and take advantage of this data?</p>
-<p><strong>A:</strong> Luckily, there are plenty of machine learning techniques to tackle unstructured data like text. We can leverage exploratory data analysis (“EDA”), as well as text mining techniques like sentiment analysis and keyword extraction to (1) visualize patterns in the data, (2) understand public opinion of the product/service, and (3) identify common complaints.</p>
+<p><strong>A:</strong> We can leverage exploratory data analysis (“EDA”), as well as text mining techniques like sentiment analysis and keyword extraction to (1) visualize patterns in the data, (2) understand public opinion of the product/service, and (3) identify common complaints.</p>
 <p>In this post, I’ll demonstrate how we can use R to download, analyze, and visualize key patterns in Apple App Store reviews. As a lover of webtoons, I’m a big fan of <a href="https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126">Tapas</a>, so I’ll be analyzing the reviews for their app!</p>
 <div id="setup-and-getting-data" class="section level2">
 <h2>Setup and Getting Data</h2>
@@ -44,167 +44,27 @@ reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_r
 <p>The Tapas app’s average rating was steadily growing up until July 2021, at which point the rating dips. By September, the average rating was essentially back where it started. So what happened in July-September 2021 that caused the rating to fall?</p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
 <p>If we plot version rollouts over time, we see that version 5.10 (the dark blue area) was the most prevalent version in September 2021, when ratings dipped. Sure enough, when we plot average ratings by app version, we can see that version 5.10 had the lowest rating since version 5.5.</p>
+<pre><code>## `summarise()` has grouped output by &#39;app_version_clean&#39;. You can override using the `.groups` argument.</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
 <p>So with EDA, we discovered that <strong>ratings were growing steadily until version 5.9, and then the Tapas app experienced a dramatic dip with version 5.10.</strong> Now that we know the <em>what</em>, we can think about the <em>why</em>: stakeholders at Tapas would want to know <em>why</em> the dip happened, so they can avoid a similar situation in the future.</p>
 </div>
 <div id="text-mining" class="section level2">
 <h2>Text Mining</h2>
 <p>So far we’ve only been looking at ratings, but there’s a whole gold-mine of information we’ve yet to touch: the reviews! There are hundreds of ways you can analyze text data. I’ll focus on two popular approaches: <strong>sentiment analysis</strong> and <strong>keyword extraction</strong>.</p>
-<div id="sentiment-analysis" class="section level3">
-<h3>Sentiment Analysis</h3>
+<div id="text-cleaning-and-sentiment-analysis" class="section level3">
+<h3>Text Cleaning and Sentiment Analysis</h3>
 <p>Sentiment analysis is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. Sentiment analysis can offer another helpful metric to help businesses understand public opinion of their product or service.</p>
 <p>Before we can run our sentiment analysis, we need to clean the reviews. This often involves stripping punctuation, removing uninformative stop words (e.g., “the”, “a”, “and”), as well as other cleaning steps. Eventually, our “cleaned” reviews will look like this:</p>
-<table>
-<colgroup>
-<col width="63%" />
-<col width="36%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th align="left">Raw</th>
-<th align="left">Cleaned</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">The app itself is garbage. It was working just fine and now it freezes or crashes constantly, forcing you to reboot it. This does not make for a pleasant reading experience.</td>
-<td align="left">app garbage work just fine now freeze crash constantly force reboot make pleasant read experience</td>
-</tr>
-</tbody>
-</table>
-<p>Now, using the “syuzhet” package in R, we can calculate a sentiment score for each cleaned review. To illustrate how this works, consider the example review above. The “get_sentiment()” function will assign a score for each word in the cleaned review.</p>
-<pre class="r"><code>example_words &lt;- example %&gt;% 
-  unnest_tokens(output = word, input = review_cleaned, token = &#39;words&#39;) %&gt;% 
-  select(word)
-
-example_sentiment &lt;- example_words %&gt;% mutate(sentiment_score = syuzhet::get_sentiment(word))
-
-example_sentiment</code></pre>
-<pre><code>##          word sentiment_score
-## 1         app            0.00
-## 2     garbage           -0.50
-## 3        work            0.25
-## 4        just            0.00
-## 5        fine            0.25
-## 6         now            0.00
-## 7      freeze           -0.40
-## 8       crash           -0.75
-## 9  constantly            0.00
-## 10      force           -0.60
-## 11     reboot            0.00
-## 12       make            0.00
-## 13   pleasant            1.00
-## 14       read            0.00
-## 15 experience            0.00</code></pre>
-<p>As you can see, a negative word like “garbage” has a negative score of -0.5, while a more positive word like “fine” will have a positive score of 0.25. The more negative or positive the word, the higher the magnitude of the score. So a word like “crash” is considered more negative than a word like “garbage.” The final score of the review is the total score across all words. In this case, the total score would be -0.75, indicating an overall negative sentiment. <em>These scores are pulled from “lexicons” assembled by literary researchers. I’m using Syuzhet, <a href="https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6">the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab</a>.</em>)</p>
-<pre class="r"><code>reviews &lt;- reviews %&gt;% 
-  mutate(sentiment_score = syuzhet::get_sentiment(review_cleaned, method = &#39;syuzhet&#39;),
-         sentiment_direction = case_when(
-           sign(sentiment_score) &gt; 0 ~ &#39;positive&#39;,
-           sign(sentiment_score) == 0 ~ &#39;neutral&#39;,
-           sign(sentiment_score) &lt; 0 ~ &#39;negative&#39;
-           )
-         )</code></pre>
-<p>#Reviews with negative sentiment</p>
-<pre class="r"><code>knitr::kable(reviews %&gt;% filter(sentiment_direction == &#39;negative&#39;) %&gt;% head() %&gt;% select(review, review_cleaned))</code></pre>
-<table>
-<colgroup>
-<col width="63%" />
-<col width="36%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th align="left">review</th>
-<th align="left">review_cleaned</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">I like the app the comics they have are some I’ve been looking for just that it has this problem where it shows black pages and even when I close the comic and reopen it, it’s still black then the app eventually crashes its happened three times so far and I’ve been waiting for them to fix it, so if it could be fixed it’d my experience better</td>
-<td align="left">like app comic look just problem show black page even close comic reopen still black app eventually crash happen three time far wait fix can fix experience good</td>
-</tr>
-<tr class="even">
-<td align="left">The app itself is garbage. It was working just fine and now it freezes or crashes constantly, forcing you to reboot it. This does not make for a pleasant reading experience.</td>
-<td align="left">app garbage work just fine now freeze crash constantly force reboot make pleasant read experience</td>
-</tr>
-<tr class="odd">
-<td align="left">Hi, I’ve been using this app for about five months now and I must say that the weekly cookies are annoying they say up to 1,000 cookies but I’ve never seen more than 370 ink in a cookie so I personally believe that the 1,000 ink is a scam.</td>
-<td align="left">hello use app five month now must say weekly cookie annoy say cookie never see much ink cookie personally believe ink scam</td>
-</tr>
-<tr class="even">
-<td align="left">My only complain about the app is that it keeps crashing whenever I try to go in and I just reinstalled it and downloaded all my favorite books that I had on it . And it keeps on crashing every time I go into the the app.</td>
-<td align="left">complain app keep crash whenever try go just reinstall download favorite book keep crash every time go app</td>
-</tr>
-<tr class="odd">
-<td align="left">When i try to open my subscribed list it keeps on showing nothing. And also the chapters i bought disappeared. I logged out and logged in again and again but to no avail. This is the worst ever.</td>
-<td align="left">try open subscribe list keep show nothing also chapter buy disappear log log avail bad ever</td>
-</tr>
-<tr class="even">
-<td align="left">I’ve never gone out of my way to write a review but the app is almost unusable after the most recent update for me. I love this app, the layout is great the comics are fantastic but it crashes CONSTANTLY. Before the most recent update it would crash on me but only if I had the app open for a long time. Now it’s crashing every couple minutes. It’s impossible to read even one chapter without it black screening or quitting out. As I said before, the app itself is good but It won’t stay open for more than 3 minutes anymore which is sad.</td>
-<td align="left">never go way write review app almost unusable much recent update love app layout great comic fantastic crash constantly much recent update crash app open long time now crash every couple minute impossible read even one chapter without black screen quit say app good will stay open much minute anymore sad</td>
-</tr>
-</tbody>
-</table>
-<p>#Reviews with positive sentiment. Sentiment is good at picking up negative reviews, but gets confused with positive reviews, especially if it has mixed language.</p>
-<pre class="r"><code>knitr::kable(reviews %&gt;% filter(sentiment_direction == &#39;positive&#39;) %&gt;% head() %&gt;% select(review, review_cleaned))</code></pre>
-<table>
-<colgroup>
-<col width="63%" />
-<col width="36%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th align="left">review</th>
-<th align="left">review_cleaned</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">I’ll be honest, this app is pretty good, and I love the stories in it, but they’ve started going to severe lengths with their censorship. This is honestly just infuriating, because so many artists are being forced to go over their old comics and edit them to cover up scenes that were even slightly sexual, which takes away from time they could be using to make legitimate updates. It’s really really dumb.</td>
-<td align="left">will honest app pretty good love story start go severe length censorship honestly just infuriate many artist force go old comic edit cover scene even slightly sexual take away time can use make legitimate update really really dumb</td>
-</tr>
-<tr class="even">
-<td align="left">Honestly I like everything about tapas but it’s too expensive if u only read manga on the app like me then the best deal you can get is $1=4 chapters. Yeah you can earn the ink but there’s multiple problems with that, if you try to earn it through apps then it doesn’t work at all, the poles work but take a lot of time for very little reward and the ads ur only allowed a certain amount every so often. The price just makes people wanna go to pirating cites instead, I think if the prices were lowered then more people would be willing to actually pay for the content instead of stealing it online.</td>
-<td align="left">honestly like everything tapa expensive u read manga app like good deal can get chapter yes can earn ink multiple problem try earn app work pole work take lot time little reward ad ur allow certain amount every often price just make people wanna go pirate cite instead think price lower much people will actually pay content instead steal online</td>
-</tr>
-<tr class="odd">
-<td align="left">Not all stories are free. Most you have to unlock each chapter with that you have buy from the store with real money &lt;U+0001F4B5&gt; &lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;&lt;U+0001F4B5&gt;</td>
-<td align="left"></td>
-</tr>
-</tbody>
-</table>
-<p>Some stories are free if you wait a day to unlock another chapter. At that point you might as well wait two months or more to read an entire book.
-If you’re a comic book fan and you feel the need to support these artists who have worked so hard to make these stories a reality then by all means go for it. Just let yourself go broke reading one book. Read responsibly. |story free much unlock chapter buy store real money story free wait day unlock another chapter point may good wait two month much read entire book comic book fan feel need support artist work hard make story reality mean go just let go break read one book read responsibly |
-|I love this app! I spend a majority of my time reading this. It brings a smile to me and makes my day better and more entertaining. The only thing though is as of late, when I try to select a comic to read, the app freezes and I have to constantly open and close it to try to read. When I do SUCEED I maybe get two scrolls before it freezes again and then blacks out and shuts itself down. Sometimes when I’m in the middle of reading one, it will close out as well. The app might need an update for bugs. There are times I’m not even able to read on it at all because it takes so long for it to try to work. |love app spend majority time read bring smile make day good much entertain thing though late try select comic read app freeze constantly open close try read suceed maybe get two scroll freeze black shut sometimes middle read one will close good app may need update bug time even able read take long try work |
-|I love it really but it did some glich when I got on all my stuff was reset my stories i read my ink everything in that was the day I had a lot of ink |love really glich get stuff reset story read ink everything day lot ink |
-|Overall an amazing app to read webtoons through legit way but recently it has been crashing a lot. It has happen multiple time with no true improvement. Like I haven’t been able to open the app for last 4 days. It if the servers been down for 5 days I feel like this is something you need to inform your readers. (Updated)if you delete the app and redownload the app it works perfectly fine. |overall amaze app read webtoons legit way recently crash lot happen multiple time true improvement like haven t able open app last day server day feel like something need inform reader update delete app redownload app work perfectly fine |</p>
-<p>#Plot proportion of positive, neutral, and negative reviews over time.</p>
-<pre class="r"><code>sent_bars &lt;- reviews %&gt;% 
-  group_by(month, sentiment_direction) %&gt;%
-  summarize(percentage = n())
-
-ggplot(sent_bars, aes(fill = sentiment_direction, x = month, y = percentage)) +  
-  geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
-  scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
-  scale_y_continuous(labels = scales::percent) + 
-  scale_fill_manual(name = &#39;Sentiment&#39;, values = c(&#39;red3&#39;, &#39;yellow3&#39;, &#39;green3&#39;)) + 
-  labs(x = &#39;Month&#39;, y = &#39;Percent of Reviews&#39;) +
-  theme_light() + 
-  ggtitle(&#39;User Sentiment by Month&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
-<p>#Plot proportion of positive, neutral, and negative reviews over time.</p>
-<pre class="r"><code>sent_ver &lt;- reviews %&gt;% 
-  group_by(app_version_clean, sentiment_direction) %&gt;%
-  summarize(percentage = n())
-
-ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
-  geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
-  scale_y_continuous(labels = scales::percent) + 
-  scale_fill_manual(name = &#39;Sentiment&#39;, values = c(&#39;red3&#39;, &#39;yellow3&#39;, &#39;green3&#39;)) + 
-  labs(x = &#39;App Version&#39;, y = &#39;Percent of Reviews&#39;) +
-  theme_light() + 
-  ggtitle(&#39;User Sentiment by App Version&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
+<p><img src="images/text_cleaning.PNG" /></p>
+<p>Now that the text is cleaned, we can use the “syuzhet” package in R to calculate a sentiment “score” for each review. For example, words like “garbage” will get negative scores, while a word like “pleasant” gets a postive score. The total gets you to the overall score for the review.</p>
+<p><img src="images/sentiment_score.png" />
+(<em>These scores are pulled from “lexicons” assembled by literary researchers. I’m using Syuzhet, <a href="https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6">the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab</a>.</em>)</p>
+<p>After we calculate a sentiment score for every review, we can identify “negative”, “positive” or “neutral” reviews (i.e., reviews with a negative, positive, or zero sentiment score respectively).</p>
+<p>So if we saw relatively poor ratings on version 5.10, we should also see more negative sentiment. Sure enough, if we plot sentiment by app version, we see exactly that.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+<p>So what are these negative reviews talking about? If we look at a few examples, we can see some pain points that users are experiencing.</p>
+<p><img src="images/negative_reviews.png" /></p>
+<p>One of the users mentions “crash” and another one mentioned “ink”, which is Tapas’ in-app currency for purchasing premium content. The word cloud below shows some of the most common words associated with mentions of “crash,” “freeze” or “bug”. The other word cloud shows the most common words associated with “ink”.</p>
 </div>
 <div id="topic-modeling" class="section level3">
 <h3>Topic Modeling</h3>
@@ -306,7 +166,7 @@ ggraph(wordnetwork, layout = &quot;fr&quot;) +
   geom_node_text(aes(label = name), size = 4) +
   theme(legend.position = &quot;none&quot;) +
   labs(title = &quot;Cooccurrences within 3 words distance&quot;, subtitle = &quot;Nouns, Adjectives, and Verbs&quot;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-21-1.png" width="672" /></p>
 <pre class="r"><code>stats &lt;- keywords_rake(x = complaint_data, term = &#39;lemma&#39;, group = &#39;doc_id&#39;, relevant = complaint_data$upos %in% c(&#39;NOUN&#39;, &#39;ADJ&#39;, &#39;VERB&#39;))
 
 stats_chart &lt;- stats %&gt;% 
@@ -320,7 +180,7 @@ ggplot(stats_chart, aes(x = keyword, y = rake)) +
   coord_flip() + 
   labs(x = &#39;RAKE&#39;, y = &#39;Keyword&#39;) + 
   ggtitle(&#39;Most common keywords identified by RAKE&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" width="672" /></p>
 <pre class="r"><code>reviews &lt;- reviews %&gt;% mutate(crash_flag = grepl(&#39;crash|freez|bug|fix&#39;, review_cleaned))
 
 crash_month &lt;- reviews %&gt;% 
@@ -348,6 +208,6 @@ plot2 &lt;- ggplot(crash_ver, aes(fill = crash_flag, x = app_version_clean, y = 
   theme_light()
 
 grid.arrange(plot1, plot2, nrow = 2)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
 </div>
 </div>
