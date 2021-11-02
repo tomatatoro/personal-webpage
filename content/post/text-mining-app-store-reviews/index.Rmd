@@ -7,9 +7,9 @@ tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling"]
 ---
 ![](images/app_store_reviews.PNG)
 
-**Q:** We published our app on the App Store, and the reviews are flooding in! It's easy enough to read through one or two reviews, but I just don't have the time to go through hundreds. How can we summarize these reviews and take advantage of this data?
+**Q:** We published our app on the App Store, and the reviews are flooding in! It's easy enough to read one or two reviews, but I just don't have the time to go through hundreds. How can we summarize these reviews and take advantage of this data?
 
-**A:** Luckily, there are plenty of machine learning tools to tackle unstructured data like text. We can leverage exploratory data analysis ("EDA"), as well as text mining techniques like sentiment analysis and keyword extraction to (1) visualize patterns in the data, (2) understand public opinion of the product/service, and (3) identify common complaints.
+**A:** We can leverage exploratory data analysis ("EDA"), as well as text mining techniques like sentiment analysis and keyword extraction to (1) visualize patterns in the data, (2) understand public opinion of the product/service, and (3) identify common complaints.
 
 In this post, I'll demonstrate how we can use R to download, analyze, and visualize key patterns in Apple App Store reviews. As a lover of webtoons, I'm a big fan of [Tapas](https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126), so I'll be analyzing the reviews for their app!
 
@@ -35,9 +35,13 @@ library(ggraph)
 library(ggplot2)
 library(gridExtra)
 library(wesanderson)
+library(colorspace)
 
-red <- wesanderson::wes_palettes$Darjeeling1[1]
-green <- wesanderson::wes_palettes$Darjeeling1[2]
+blue <- wesanderson::wes_palettes$Zissou1[1]
+red <- wesanderson::wes_palettes$Royal2[3]
+green <- wesanderson::wes_palettes$Royal2[5]
+yellow <- wesanderson::wes_palettes$Royal2[4]
+lightblue <- lighten(blue, amount = 0.5, method = 'relative', space = 'combined')
 ```
 
 To start, we'll use the **appler** package to download the latest user reviews for Tapas. (_disclaimer: the App Store API only allows users to download the latest 500 reviews. If you have thousands of reviews, you can still apply the same analyses!_)
@@ -78,11 +82,11 @@ proportion <- monthly_count %>%
   filter(month_flag == TRUE) %>% 
   select(total_n)
 
-my_palette <- c('gray', green)
+my_palette <- c(lightblue, blue)
 
 ggplot(monthly_count, aes(x = month, y = n, fill = month_flag)) + 
   geom_bar(stat = 'identity') + 
-  labs(title = "More than half the reviews (288/500) are from the first three months.",
+  labs(title = "More than half the reviews (288 out of 500) are from the first three months.",
        subtitle = "Monthly Count of Reviews",
        x = 'Month', 
        y = 'Count of Reviews') +
@@ -94,7 +98,6 @@ ggplot(monthly_count, aes(x = month, y = n, fill = month_flag)) +
   ylim(0, 150) + 
   scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
   geom_text(aes(label = n), vjust = -0.5)
-  
 ```
 
 Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people reviewed the Tapas app in recent months. Is this indicative of fewer users in recent months? What if we looked at the app's average rating over time?
@@ -102,18 +105,15 @@ Interestingly, the majority of reviews are from early 2021, and it seems like fe
 ```{r, echo = FALSE, message = FALSE}
 avg_rating <- reviews %>% 
   mutate(highlight_flag = case_when(
-    month == '2021-07-01' ~ 'high',
-    month == '2021-09-01' ~ 'low',
-    T ~ 'n/a'
+    month %in% as.Date(c('2021-07-01', '2021-09-01')) ~ T,
+    T ~ F
   )) %>%
   group_by(month, highlight_flag) %>% 
   summarize(avg_rating = mean(rating))
 
-my_palette <- c(green, red, 'gray')
-
 ggplot(avg_rating, aes(x = month, y = avg_rating, fill = highlight_flag)) +
   geom_bar(stat = 'identity') +
-  labs(title = 'Average ratings peaked in July 2021 (3.62) and fell in September (2.66).',
+  labs(title = 'Average ratings peaked in July and dipped in September.',
        subtitle = 'Monthly Average Rating',
        x = 'Month', 
        y = 'Average Rating') + 
@@ -129,7 +129,6 @@ ggplot(avg_rating, aes(x = month, y = avg_rating, fill = highlight_flag)) +
 
 The Tapas app's average rating was steadily growing up until July 2021, at which point the rating dips. By September, the average rating was essentially back where it started. So what happened in July-September 2021 that caused the rating to fall?
 
-#Investigate changes to the app version
 ```{r, echo = FALSE, message = FALSE}
 reviews <- reviews %>% mutate(app_version_clean = stringr::str_extract(as.character(app_version), '5\\.[0-9]{1,2}'))
 
@@ -154,7 +153,7 @@ version_prop <- version_count %>%
 
 ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) + 
   geom_area() + 
-  labs(title = 'Ver. 5.10 was the most prevalent version around September 2021.',
+  labs(title = 'Ver. 5.10 was the active version around September.',
        subtitle = 'Version Rollouts Over Time',
        x = 'Month', 
        y = 'Percent of Reviews') +
@@ -169,15 +168,13 @@ ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) +
              size = 1.5)
 ```
 
-If we plot version rollouts over time, we see that version 5.10 (the dark blue area) was the most prevalent version in September 2021, when ratings dipped. Sure enough, when we plot average ratings by app version, we can see that version 5.10 had the lowest rating since 5.5. 
+If we plot version rollouts over time, we see that version 5.10 (the dark blue area) was the most prevalent version in September 2021, when ratings dipped. Sure enough, when we plot average ratings by app version, we can see that version 5.10 had the lowest rating since version 5.5. 
 
-#Plot average rating by app version
 ```{r, echo = FALSE, message = FALSE}
 avg_rating_by_ver <- reviews %>% 
   mutate(highlight_flag = case_when(
-    app_version_clean == '5.9' ~ 'high',
-    app_version_clean == '5.10' ~ 'low',
-    T ~ 'n/a'
+    app_version_clean %in% c('5.9', '5.10')  ~ T,
+    T ~ F
   )) %>%
   group_by(app_version_clean, highlight_flag) %>%
   summarize(avg_rating = mean(rating)) %>%
@@ -185,7 +182,7 @@ avg_rating_by_ver <- reviews %>%
 
 ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating, fill = highlight_flag)) + 
   geom_bar(stat = 'identity') +
-  labs(title = 'Average ratings peaked with ver. 5.9 and fell with ver. 5.10.',
+  labs(title = 'Average ratings peaked with ver. 5.9 and dipped with ver. 5.10.',
        subtitle = 'Average Rating by App Version',
        x = 'App Version', 
        y = 'Average Rating') +
@@ -204,7 +201,7 @@ So with EDA, we discovered that **ratings were growing steadily until version 5.
 
 So far we've only been looking at ratings, but there's a whole gold-mine of information we've yet to touch: the reviews! There are hundreds of ways you can analyze text data. I'll focus on two popular approaches: **sentiment analysis** and **keyword extraction**. 
 
-### Sentiment Analysis
+### Text Cleaning and Sentiment Analysis
 Sentiment analysis is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. Sentiment analysis can offer another helpful metric to help businesses understand public opinion of their product or service.
 
 Before we can run our sentiment analysis, we need to clean the reviews. This often involves stripping punctuation, removing uninformative stop words (e.g., "the", "a", "and"), as well as other cleaning steps. Eventually, our "cleaned" reviews will look like this:
@@ -224,73 +221,89 @@ cleanText <- function(x){
 reviews <- reviews %>% mutate(review_cleaned = cleanText(review))
 #Show example: before and after
 example <- reviews[5,]
-knitr::kable(data.frame(Raw = example$review, Cleaned = example$review_cleaned))
 ```
+![text_cleaning.png](images/text_cleaning.PNG)
 
-Now, using the "syuzhet" package in R, we can calculate a sentiment score for each cleaned review. To illustrate how this works, consider the example review above. The "get_sentiment()" function will assign a score for each word in the cleaned review.
-```{r}
+Now that the text is cleaned, we can use the "syuzhet" package in R to calculate a sentiment "score" for each review. For example, words like "garbage" will get negative scores, while a word like "pleasant" gets a postive score. The total gets you to the overall score for the review.
+```{r, include = FALSE}
+#Run get_sentiment on example review
 example_words <- example %>% 
   unnest_tokens(output = word, input = review_cleaned, token = 'words') %>% 
   select(word)
 
 example_sentiment <- example_words %>% mutate(sentiment_score = syuzhet::get_sentiment(word))
-
-example_sentiment
 ```
-As you can see, a negative word like "garbage" has a negative score of -0.5, while a more positive word like "fine" will have a positive score of 0.25. The more negative or positive the word, the higher the magnitude of the score. So a word like "crash" is considered more negative than a word like "garbage." The final score of the review is the total score across all words. In this case, the total score would be -0.75, indicating an overall negative sentiment. (_These scores are pulled from "lexicons" assembled by literary researchers. I'm using Syuzhet, (the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab)[https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6]._)
+![sentiment_score.png](images/sentiment_score.png)
+(_These scores are pulled from "lexicons" assembled by literary researchers. I'm using Syuzhet, [the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab](https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6)._)
 
+After we calculate a sentiment score for every review, we can identify "negative", "positive" or "neutral" reviews (i.e., reviews with a negative, positive, or zero sentiment score respectively). 
 
-```{r, message = FALSE}
+```{r, echo = FALSE, message = FALSE}
+sentiment_order <- c('negative', 'neutral', 'positive')
+
 reviews <- reviews %>% 
   mutate(sentiment_score = syuzhet::get_sentiment(review_cleaned, method = 'syuzhet'),
          sentiment_direction = case_when(
+           sign(sentiment_score) < 0 ~ 'negative',
            sign(sentiment_score) > 0 ~ 'positive',
-           sign(sentiment_score) == 0 ~ 'neutral',
-           sign(sentiment_score) < 0 ~ 'negative'
+           sign(sentiment_score) == 0 ~ 'neutral'
            )
-         )
+         ) %>%
+  mutate(sentiment_direction = factor(sentiment_direction, levels = sentiment_order))
 ```
+So if we saw relatively poor ratings on version 5.10, we should also see more negative sentiment. Sure enough, if we plot sentiment by app version, we see exactly that. 
 
-#Reviews with negative sentiment
-```{r, message = FALSE}
-knitr::kable(reviews %>% filter(sentiment_direction == 'negative') %>% head() %>% select(review, review_cleaned))
-```
-
-#Reviews with positive sentiment. Sentiment is good at picking up negative reviews, but gets confused with positive reviews, especially if it has mixed language.
-```{r, message = FALSE}
-knitr::kable(reviews %>% filter(sentiment_direction == 'positive') %>% head() %>% select(review, review_cleaned))
-```
-
-#Plot proportion of positive, neutral, and negative reviews over time.
-```{r, message = FALSE}
-sent_bars <- reviews %>% 
-  group_by(month, sentiment_direction) %>%
-  summarize(percentage = n())
-
-ggplot(sent_bars, aes(fill = sentiment_direction, x = month, y = percentage)) +  
-  geom_bar(position = 'fill', stat = 'identity') +
-  scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
-  scale_y_continuous(labels = scales::percent) + 
-  scale_fill_manual(name = 'Sentiment', values = c('red3', 'yellow3', 'green3')) + 
-  labs(x = 'Month', y = 'Percent of Reviews') +
-  theme_light() + 
-  ggtitle('User Sentiment by Month')
-```
-
-#Plot proportion of positive, neutral, and negative reviews over time.
 ```{r, message = FALSE}
 sent_ver <- reviews %>% 
   group_by(app_version_clean, sentiment_direction) %>%
   summarize(percentage = n())
 
+my_palette <- c(red, yellow, green)
+
 ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
   geom_bar(position = 'fill', stat = 'identity') +
+  labs(title = 'Users left more negative reviews on ver. 5.10.',
+       subtitle = 'Sentiment by App Version',
+       x = 'App Version', 
+       y = 'Percent of Reviews') +
+  theme_light() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) +
   scale_y_continuous(labels = scales::percent) + 
-  scale_fill_manual(name = 'Sentiment', values = c('red3', 'yellow3', 'green3')) + 
-  labs(x = 'App Version', y = 'Percent of Reviews') +
-  theme_light() + 
-  ggtitle('User Sentiment by App Version')
+  scale_fill_manual(name = 'Sentiment', values = my_palette)
 ```
+```{r, echo = FALSE, message = FALSE, include = FALSE}
+sent_bars <- reviews %>% 
+  group_by(month, sentiment_direction) %>%
+  summarize(percentage = n())
+
+my_palette <- c(red, yellow, green)
+
+ggplot(sent_bars, aes(fill = sentiment_direction, x = month, y = percentage)) +  
+  geom_bar(position = 'fill', stat = 'identity') +
+  labs(title = 'Users left more negative reviews around September.',
+       subtitle = 'Monthly Sentiment Distribution',
+       x = 'Month', 
+       y = 'Percent of Reviews') +
+  theme_light() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) +
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %y") +
+  scale_y_continuous(labels = scales::percent) + 
+  scale_fill_manual(name = 'Sentiment', values = my_palette)
+```
+
+So what are these negative reviews talking about? If we look at a few examples, we can see some pain points that users are experiencing. 
+```{r, include = FALSE}
+#negative examples
+knitr::kable(reviews %>% filter(sentiment_direction == 'negative') %>% head() %>% select(review, review_cleaned, sentiment_score))
+
+#positive examples
+knitr::kable(reviews %>% filter(sentiment_direction == 'positive') %>% head() %>% select(review, review_cleaned, sentiment_score))
+```
+![negative_reviews.png](images/negative_reviews.png)
+
+One of the users mentions "crash" and another one mentioned "ink", which is Tapas' in-app currency for purchasing premium content. The word cloud below shows some of the most common words associated with mentions of "crash," "freeze" or "bug". The other word cloud shows the most common words associated with "ink".
 
 ### Topic Modeling
 

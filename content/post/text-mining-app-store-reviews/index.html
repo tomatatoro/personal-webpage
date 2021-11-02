@@ -9,8 +9,8 @@ tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling"]
 
 
 <p><img src="images/app_store_reviews.PNG" /></p>
-<p><strong>Q:</strong> We published our app on the App Store, and the reviews are flooding in! It’s easy enough to read through one or two reviews, but I just don’t have the time to go through hundreds. How can we summarize these reviews and take advantage of this data?</p>
-<p><strong>A:</strong> Luckily, there are plenty of machine learning tools to tackle unstructured data like text. We can leverage exploratory data analysis (“EDA”), as well as text mining techniques like sentiment analysis and keyword extraction to (1) visualize patterns in the data, (2) understand public opinion of the product/service, and (3) identify common complaints.</p>
+<p><strong>Q:</strong> We published our app on the App Store, and the reviews are flooding in! It’s easy enough to read one or two reviews, but I just don’t have the time to go through hundreds. How can we summarize these reviews and take advantage of this data?</p>
+<p><strong>A:</strong> Luckily, there are plenty of machine learning techniques to tackle unstructured data like text. We can leverage exploratory data analysis (“EDA”), as well as text mining techniques like sentiment analysis and keyword extraction to (1) visualize patterns in the data, (2) understand public opinion of the product/service, and (3) identify common complaints.</p>
 <p>In this post, I’ll demonstrate how we can use R to download, analyze, and visualize key patterns in Apple App Store reviews. As a lover of webtoons, I’m a big fan of <a href="https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126">Tapas</a>, so I’ll be analyzing the reviews for their app!</p>
 <div id="setup-and-getting-data" class="section level2">
 <h2>Setup and Getting Data</h2>
@@ -42,11 +42,9 @@ reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_r
 <p>Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people reviewed the Tapas app in recent months. Is this indicative of fewer users in recent months? What if we looked at the app’s average rating over time?</p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
 <p>The Tapas app’s average rating was steadily growing up until July 2021, at which point the rating dips. By September, the average rating was essentially back where it started. So what happened in July-September 2021 that caused the rating to fall?</p>
-<p>#Investigate changes to the app version
-<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
-<p>If we plot version rollouts over time, we see that version 5.10 (the dark blue area) was the most prevalent version in September 2021, when ratings dipped. Sure enough, when we plot average ratings by app version, we can see that version 5.10 had the lowest rating since 5.5.</p>
-<p>#Plot average rating by app version
-<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p>If we plot version rollouts over time, we see that version 5.10 (the dark blue area) was the most prevalent version in September 2021, when ratings dipped. Sure enough, when we plot average ratings by app version, we can see that version 5.10 had the lowest rating since version 5.5.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
 <p>So with EDA, we discovered that <strong>ratings were growing steadily until version 5.9, and then the Tapas app experienced a dramatic dip with version 5.10.</strong> Now that we know the <em>what</em>, we can think about the <em>why</em>: stakeholders at Tapas would want to know <em>why</em> the dip happened, so they can avoid a similar situation in the future.</p>
 </div>
 <div id="text-mining" class="section level2">
@@ -98,7 +96,7 @@ example_sentiment</code></pre>
 ## 13   pleasant            1.00
 ## 14       read            0.00
 ## 15 experience            0.00</code></pre>
-<p>As you can see, a negative word like “garbage” has a negative score of -0.5, while a more positive word like “fine” will have a positive score of 0.25. The more negative or positive the word, the higher the magnitude of the score. So a word like “crash” is considered more negative than a word like “garbage.” The final score of the review is the total score across all words. In this case, the total score would be -0.75, indicating an overall negative sentiment. (<em>These scores are pulled from “lexicons” assembled by literary researchers. I’m using Syuzhet, (the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab)[<a href="https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6" class="uri">https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6</a>].</em>)</p>
+<p>As you can see, a negative word like “garbage” has a negative score of -0.5, while a more positive word like “fine” will have a positive score of 0.25. The more negative or positive the word, the higher the magnitude of the score. So a word like “crash” is considered more negative than a word like “garbage.” The final score of the review is the total score across all words. In this case, the total score would be -0.75, indicating an overall negative sentiment. <em>These scores are pulled from “lexicons” assembled by literary researchers. I’m using Syuzhet, <a href="https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6">the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab</a>.</em>)</p>
 <pre class="r"><code>reviews &lt;- reviews %&gt;% 
   mutate(sentiment_score = syuzhet::get_sentiment(review_cleaned, method = &#39;syuzhet&#39;),
          sentiment_direction = case_when(
