@@ -44,12 +44,33 @@ reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_r
 <p>The Tapas app’s average rating was steadily growing up until July 2021, at which point the rating dips. By September, the average rating was essentially back where it started. So what happened in July-September 2021 that caused the rating to fall?</p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
 <p>If we plot version rollouts over time, we see that version 5.10 (the dark blue area) was the most prevalent version in September 2021, when ratings dipped. Sure enough, when we plot average ratings by app version, we can see that version 5.10 had the lowest rating since version 5.5.</p>
+<pre class="r"><code>avg_rating_by_ver &lt;- reviews %&gt;% 
+  mutate(highlight_flag = case_when(
+    app_version_clean == &#39;5.10&#39;  ~ T,
+    T ~ F
+  )) %&gt;%
+  group_by(app_version_clean, highlight_flag) %&gt;%
+  summarize(avg_rating = mean(rating)) %&gt;%
+  arrange(app_version_clean)</code></pre>
 <pre><code>## `summarise()` has grouped output by &#39;app_version_clean&#39;. You can override using the `.groups` argument.</code></pre>
+<pre class="r"><code>ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating, fill = highlight_flag)) + 
+  geom_bar(stat = &#39;identity&#39;) +
+  labs(title = &#39;Average ratings peaked with ver. 5.9 and dipped with ver. 5.10.&#39;,
+       subtitle = &#39;Average Rating by App Version&#39;,
+       x = &#39;App Version&#39;, 
+       y = &#39;Average Rating&#39;) +
+  theme_light() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = &#39;none&#39;) +
+  scale_fill_manual(values = my_palette) +
+  ylim(0, 5) +
+  geom_text(aes(label = formatC(avg_rating, format = &#39;f&#39;, digits = 2)), vjust = -0.8)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
 <p>So with EDA, we discovered that <strong>ratings were growing steadily until version 5.9, and then the Tapas app experienced a dramatic dip with version 5.10.</strong> Now that we know the <em>what</em>, we can think about the <em>why</em>: stakeholders at Tapas would want to know <em>why</em> the dip happened, so they can avoid a similar situation in the future.</p>
 </div>
-<div id="text-mining" class="section level2">
-<h2>Text Mining</h2>
+<div id="text-mining-what-is-driving-these-patterns" class="section level2">
+<h2>Text Mining: What is driving these patterns?</h2>
 <p>So far we’ve only been looking at ratings, but there’s a whole gold-mine of information we’ve yet to touch: the reviews! There are hundreds of ways you can analyze text data. I’ll focus on two popular approaches: <strong>sentiment analysis</strong> and <strong>keyword extraction</strong>.</p>
 <div id="text-cleaning-and-sentiment-analysis" class="section level3">
 <h3>Text Cleaning and Sentiment Analysis</h3>
@@ -61,13 +82,41 @@ reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_r
 (<em>These scores are pulled from “lexicons” assembled by literary researchers. I’m using Syuzhet, <a href="https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6">the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab</a>.</em>)</p>
 <p>After we calculate a sentiment score for every review, we can identify “negative”, “positive” or “neutral” reviews (i.e., reviews with a negative, positive, or zero sentiment score respectively).</p>
 <p>So if we saw relatively poor ratings on version 5.10, we should also see more negative sentiment. Sure enough, if we plot sentiment by app version, we see exactly that.</p>
+<pre class="r"><code>sent_ver &lt;- reviews %&gt;% 
+  group_by(app_version_clean, sentiment_direction) %&gt;%
+  summarize(percentage = n())
+
+my_palette &lt;- c(red, yellow, green)
+
+ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
+  geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
+  labs(title = &#39;Users left more negative reviews on ver. 5.10.&#39;,
+       subtitle = &#39;Sentiment by App Version&#39;,
+       x = &#39;App Version&#39;, 
+       y = &#39;Percent of Reviews&#39;) +
+  theme_light() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) +
+  scale_y_continuous(labels = scales::percent) + 
+  scale_fill_manual(name = &#39;Sentiment&#39;, values = my_palette)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
 <p>So what are these negative reviews talking about? If we look at a few examples, we can see some pain points that users are experiencing.</p>
 <p><img src="images/negative_reviews.png" /></p>
 <p>One of the users mentions “crash” and another one mentioned “ink”, which is Tapas’ in-app currency for purchasing premium content. The word cloud below shows some of the most common words associated with mentions of “crash,” “freeze” or “bug”. The other word cloud shows the most common words associated with “ink”.</p>
+<pre class="r"><code>#grepl(&#39;crash|freeze&#39;, review_cleaned)
+crash &lt;- reviews %&gt;% filter(sentiment_direction == &#39;negative&#39;) 
+crash_words &lt;- crash %&gt;% 
+  select(review_cleaned) %&gt;%
+  unnest_tokens(output = word, input = review_cleaned) %&gt;%
+  count(word, sort = TRUE)
+
+colfun &lt;- colorRampPalette(c(lightred, red))
+set.seed(123) # for reproducibility 
+wordcloud(words = crash_words$word, freq = crash_words$n, min.freq = 5, max.words=200, random.order=FALSE, rot.per=0.35, col = colfun(8))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
 </div>
-<div id="topic-modeling" class="section level3">
-<h3>Topic Modeling</h3>
+<div id="keyword-extraction" class="section level3">
+<h3>Keyword Extraction</h3>
 <pre class="r"><code>complaints &lt;- reviews %&gt;%
   unnest_tokens(output = sentence, input = review, token = &#39;sentences&#39;) %&gt;%
   select(rating, sentence) %&gt;%
@@ -166,7 +215,7 @@ ggraph(wordnetwork, layout = &quot;fr&quot;) +
   geom_node_text(aes(label = name), size = 4) +
   theme(legend.position = &quot;none&quot;) +
   labs(title = &quot;Cooccurrences within 3 words distance&quot;, subtitle = &quot;Nouns, Adjectives, and Verbs&quot;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-21-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" width="672" /></p>
 <pre class="r"><code>stats &lt;- keywords_rake(x = complaint_data, term = &#39;lemma&#39;, group = &#39;doc_id&#39;, relevant = complaint_data$upos %in% c(&#39;NOUN&#39;, &#39;ADJ&#39;, &#39;VERB&#39;))
 
 stats_chart &lt;- stats %&gt;% 
@@ -180,7 +229,7 @@ ggplot(stats_chart, aes(x = keyword, y = rake)) +
   coord_flip() + 
   labs(x = &#39;RAKE&#39;, y = &#39;Keyword&#39;) + 
   ggtitle(&#39;Most common keywords identified by RAKE&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
 <pre class="r"><code>reviews &lt;- reviews %&gt;% mutate(crash_flag = grepl(&#39;crash|freez|bug|fix&#39;, review_cleaned))
 
 crash_month &lt;- reviews %&gt;% 
@@ -208,6 +257,6 @@ plot2 &lt;- ggplot(crash_ver, aes(fill = crash_flag, x = app_version_clean, y = 
   theme_light()
 
 grid.arrange(plot1, plot2, nrow = 2)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
 </div>
 </div>

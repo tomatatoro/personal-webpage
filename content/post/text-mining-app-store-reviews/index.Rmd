@@ -36,9 +36,11 @@ library(ggplot2)
 library(gridExtra)
 library(wesanderson)
 library(colorspace)
+library(wordcloud)
 
 blue <- wesanderson::wes_palettes$Zissou1[1]
-red <- wesanderson::wes_palettes$Royal2[3]
+red <- wesanderson::wes_palettes$Royal1[2]
+lightred <- lighten(red, amount = 0.5, method = 'relative', space = 'combined')
 green <- wesanderson::wes_palettes$Royal2[5]
 yellow <- wesanderson::wes_palettes$Royal2[4]
 lightblue <- lighten(blue, amount = 0.5, method = 'relative', space = 'combined')
@@ -170,10 +172,10 @@ ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) +
 
 If we plot version rollouts over time, we see that version 5.10 (the dark blue area) was the most prevalent version in September 2021, when ratings dipped. Sure enough, when we plot average ratings by app version, we can see that version 5.10 had the lowest rating since version 5.5. 
 
-```{r, echo = FALSE}
+```{r}
 avg_rating_by_ver <- reviews %>% 
   mutate(highlight_flag = case_when(
-    app_version_clean %in% c('5.9', '5.10')  ~ T,
+    app_version_clean == '5.10'  ~ T,
     T ~ F
   )) %>%
   group_by(app_version_clean, highlight_flag) %>%
@@ -197,7 +199,7 @@ ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating, fill = high
 
 So with EDA, we discovered that **ratings were growing steadily until version 5.9, and then the Tapas app experienced a dramatic dip with version 5.10.** Now that we know the _what_, we can think about the _why_: stakeholders at Tapas would want to know _why_ the dip happened, so they can avoid a similar situation in the future. 
 
-## Text Mining
+## Text Mining: What is driving these patterns?
 
 So far we've only been looking at ratings, but there's a whole gold-mine of information we've yet to touch: the reviews! There are hundreds of ways you can analyze text data. I'll focus on two popular approaches: **sentiment analysis** and **keyword extraction**. 
 
@@ -214,7 +216,7 @@ cleanText <- function(x){
   temp <- sapply(temp, function(i) iconv(i, "latin1", "ASCII", sub=""))
   temp <- tolower(temp)
   temp <- lemmatize_strings(temp)
-  temp <- removeWords(temp, stopwords(kind = 'en'))
+  temp <- removeWords(temp, c('app', 'tapa', stopwords(kind = 'en')))
   temp <- gsub('\\s+', ' ', temp)
 }
 
@@ -253,7 +255,7 @@ reviews <- reviews %>%
 ```
 So if we saw relatively poor ratings on version 5.10, we should also see more negative sentiment. Sure enough, if we plot sentiment by app version, we see exactly that. 
 
-```{r, echo = FALSE, message = FALSE}
+```{r, message = FALSE}
 sent_ver <- reviews %>% 
   group_by(app_version_clean, sentiment_direction) %>%
   summarize(percentage = n())
@@ -304,8 +306,20 @@ knitr::kable(reviews %>% filter(sentiment_direction == 'positive') %>% head() %>
 ![](images/negative_reviews.png)
 
 One of the users mentions "crash" and another one mentioned "ink", which is Tapas' in-app currency for purchasing premium content. The word cloud below shows some of the most common words associated with mentions of "crash," "freeze" or "bug". The other word cloud shows the most common words associated with "ink".
+```{r}
+#grepl('crash|freeze', review_cleaned)
+crash <- reviews %>% filter(sentiment_direction == 'negative') 
+crash_words <- crash %>% 
+  select(review_cleaned) %>%
+  unnest_tokens(output = word, input = review_cleaned) %>%
+  count(word, sort = TRUE)
 
-### Topic Modeling
+colfun <- colorRampPalette(c(lightred, red))
+set.seed(123) # for reproducibility 
+wordcloud(words = crash_words$word, freq = crash_words$n, min.freq = 5, max.words=200, random.order=FALSE, rot.per=0.35, col = colfun(8))
+```
+
+### Keyword Extraction
 
 ```{r}
 complaints <- reviews %>%
