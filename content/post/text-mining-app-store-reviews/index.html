@@ -1,23 +1,28 @@
 ---
-title: "Text Mining App Store Reviews"
+title: "Ouch! Extracting Pain Points from App Reviews"
 author: "Tato Lu"
 date: "10/24/2021"
 categories: ["R"]
-tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling"]
+tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling", "linear regression"]
 ---
 
 
 
-<p><img src="images/app_store_reviews.PNG" /></p>
-<p><strong>Q:</strong> We published our app on the App Store, and the reviews are flooding in! It’s easy enough to read one or two reviews, but I just don’t have the time to go through hundreds. How can we summarize these reviews and take advantage of this data?</p>
-<p><strong>A:</strong> We can leverage exploratory data analysis (“EDA”), as well as text mining techniques like sentiment analysis and keyword extraction to (1) visualize patterns in the data, (2) understand public opinion of the product/service, and (3) identify common complaints.</p>
-<p>In this post, I’ll demonstrate how we can use R to download, analyze, and visualize key patterns in Apple App Store reviews. As a lover of webtoons, I’m a big fan of <a href="https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126">Tapas</a>, so I’ll be analyzing the reviews for their app!</p>
-<div id="setup-and-getting-data" class="section level2">
-<h2>Setup and Getting Data</h2>
-<p>To start, we’ll use the <strong>appler</strong> package to download the latest user reviews for Tapas. (<em>disclaimer: the App Store API only allows users to download the latest 500 reviews. If you have thousands of reviews, you can still apply the same analyses!</em>)</p>
+<p><img src="images/app_store_reviews.PNG" />
+Today, companies are faced with huge volumes of unstructured text data in the form of social media posts, online reviews, emails, etc. Those data are key in answering questions like:</p>
+<ul>
+<li><p><strong>What does Twitter think of our brand?</strong></p></li>
+<li><p><strong>What key features are Amazon reviewers buzzing about?</strong></p></li>
+<li><p><strong>What pain points are users experiencing on our latest app?</strong></p></li>
+</ul>
+<p>In this post, I’ll showcase a few data science techniques we can use to answer those questions. We’ll cover <em>exploratory data analysis (“EDA”)</em>, as well as text mining techniques like <em>sentiment analysis</em> and <em>keyword extraction</em>. I’ll be using <em>R</em> to download, analyze, and visualize key patterns in <em>Apple App Store reviews</em>.</p>
+<div id="setup-and-loading-data" class="section level2">
+<h2>Setup and Loading Data</h2>
+<p>To start, we’ll use the <strong>appler</strong> package to download the latest user reviews for a given app ID. As a webtoon enthusiast, I’m a big fan of the <a href="https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126">Tapas app</a>, so I’ll be analyzing the reviews for their app!</p>
+<p>(<em>disclaimer: the App Store API only allows users to download the latest 500 reviews. But even if you have thousands of reviews, you can still apply the same analyses!</em>)</p>
 <pre class="r"><code># App store ID can be found in the app store URL: https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126
 reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_results = TRUE)</code></pre>
-<p>Great! Now we can use the dim() and head() functions to look at how large the dataset is, and what it looks like.</p>
+<p>Once we have the data downloaded, we can use dim() and head() to look at how large the dataset is, and what it looks like.</p>
 <pre class="r"><code>dim(reviews)</code></pre>
 <pre><code>## [1] 500   7</code></pre>
 <pre class="r"><code>head(reviews, 3)</code></pre>
@@ -35,49 +40,37 @@ reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_r
 ## 3 Honestly I like everything about tapas but it’s too expensive if u only read manga on the app like me then the best deal you can get is $1=4 chapters. Yeah you can earn the ink but there’s multiple problems with that, if you try to earn it through apps then it doesn’t work at all, the poles work but take a lot of time for very little reward and the ads ur only allowed a certain amount every so often. The price just makes people wanna go to pirating cites instead, I think if the prices were lowered then more people would be willing to actually pay for the content instead of stealing it online.</code></pre>
 <p>The dataset has 500 rows, with 7 variables. The variables we’ll be working with most are review_time, app_version, rating, and review.</p>
 </div>
-<div id="exploratory-data-analysis-what-patterns-are-in-the-data" class="section level2">
-<h2>Exploratory Data Analysis: What patterns are in the data?</h2>
-<p>Before diving into any analysis, let’s do some EDA get a sense of what we’re working with. The graph below plots the distribution of reviews over time.
+<div id="exploratory-data-analysis" class="section level2">
+<h2>Exploratory Data Analysis</h2>
+<div id="what-trends-do-we-see-over-time" class="section level4">
+<h4>“What trends do we see over time?”</h4>
+<p>Before diving into any analysis, let’s do some EDA get a sense of the data structure and what patterns might be worth exploring. To start, I looked at the distribution of data over the past few months.
 <img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
-<p>Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people reviewed the Tapas app in recent months. Is this indicative of fewer users in recent months? What if we looked at the app’s average rating over time?</p>
+<p>Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people left reviews for Tapas in recent months. It’s well-known that dissatisfied customers are highly likely to leave negative reviews, while satisified customers are unlikely to leave positive reviews. So the drop in reviews could also be seen as evidence of improvements in the app. What if we looked at the app’s average rating over time?</p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
-<p>The Tapas app’s average rating was steadily growing up until July 2021, at which point the rating dips. By September, the average rating was essentially back where it started. So what happened in July-September 2021 that caused the rating to fall?</p>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
-<p>If we plot version rollouts over time, we see that version 5.10 (the dark blue area) was the most prevalent version in September 2021, when ratings dipped. Sure enough, when we plot average ratings by app version, we can see that version 5.10 had the lowest rating since version 5.5.</p>
-<pre class="r"><code>avg_rating_by_ver &lt;- reviews %&gt;% 
-  mutate(highlight_flag = case_when(
-    app_version_clean == &#39;5.10&#39;  ~ T,
-    T ~ F
-  )) %&gt;%
-  group_by(app_version_clean, highlight_flag) %&gt;%
-  summarize(avg_rating = mean(rating)) %&gt;%
-  arrange(app_version_clean)</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;app_version_clean&#39;. You can override using the `.groups` argument.</code></pre>
-<pre class="r"><code>ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating, fill = highlight_flag)) + 
-  geom_bar(stat = &#39;identity&#39;) +
-  labs(title = &#39;Average ratings peaked with ver. 5.9 and dipped with ver. 5.10.&#39;,
-       subtitle = &#39;Average Rating by App Version&#39;,
-       x = &#39;App Version&#39;, 
-       y = &#39;Average Rating&#39;) +
-  theme_light() +
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        legend.position = &#39;none&#39;) +
-  scale_fill_manual(values = my_palette) +
-  ylim(0, 5) +
-  geom_text(aes(label = formatC(avg_rating, format = &#39;f&#39;, digits = 2)), vjust = -0.8)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
-<p>So with EDA, we discovered that <strong>ratings were growing steadily until version 5.9, and then the Tapas app experienced a dramatic dip with version 5.10.</strong> Now that we know the <em>what</em>, we can think about the <em>why</em>: stakeholders at Tapas would want to know <em>why</em> the dip happened, so they can avoid a similar situation in the future.</p>
+<p>Plotting ratings over time paints a similar narrative, that the Tapas app has generally improved over time. The average rating was steadily growing up until July 2021. But after that point, ratings took a dip, and by September, the average rating was essentially back where it started. The App Store provides data on app versions, so we can also look at ratings across different app versions.</p>
+<p>When we plot average ratings by app version, we can see that version 5.10 had the lowest rating since version 5.5.
+<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>So we discovered that <em>Tapas ratings improved through the release of version 5.9 in July</em>, but <em>ratings have fallen in recent months for versions 5.10-5.12</em>.</p>
 </div>
-<div id="text-mining-what-is-driving-these-patterns" class="section level2">
-<h2>Text Mining: What is driving these patterns?</h2>
-<p>So far we’ve only been looking at ratings, but there’s a whole gold-mine of information we’ve yet to touch: the reviews! There are hundreds of ways you can analyze text data. I’ll focus on two popular approaches: <strong>sentiment analysis</strong> and <strong>keyword extraction</strong>.</p>
+</div>
+<div id="whats-driving-the-negative-reviews" class="section level2">
+<h2>What’s driving the negative reviews?</h2>
+<p>So far we’ve only looked at ratings, but there’s a whole gold-mine of information we’ve yet to touch: the reviews! There are hundreds of ways you can analyze text data. I’ll focus on <strong>sentiment analysis</strong> and <strong>keyword extraction</strong>, and we’ll finish it up with a simple linear regression.</p>
 <div id="text-cleaning-and-sentiment-analysis" class="section level3">
 <h3>Text Cleaning and Sentiment Analysis</h3>
-<p>Sentiment analysis is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. Sentiment analysis can offer another helpful metric to help businesses understand public opinion of their product or service.</p>
-<p>Before we can run our sentiment analysis, we need to clean the reviews. This often involves stripping punctuation, removing uninformative stop words (e.g., “the”, “a”, “and”), as well as other cleaning steps. Eventually, our “cleaned” reviews will look like this:</p>
+<div id="how-do-we-identify-negative-reviews" class="section level4">
+<h4>“How do we identify negative reviews?”</h4>
+<p><a href="https://monkeylearn.com/blog/text-mining-sentiment-analysis/">Sentiment analysis</a> is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. With sentiment analysis, you can get a deeper understanding of public opinion about your company/product/service.</p>
+<p>Sentiment analysis is helpful in this case because there can still be reviews with positive ratings, but the text itself is negative. For example, this 5-star review talks about an issue with the app crashing. If we filtered on rating, we wouldn’t capture a review like this. So when identifying pain points, we’ll want to use sentiment analysis to keep reviews like this in the population.</p>
+<pre class="r"><code>reviews %&gt;% filter(id == 7882943052) %&gt;% select(rating, title, review)</code></pre>
+<pre><code>##   rating                                title
+## 1      5 App keeps Crashing when I go into it
+##                                                                                                                                                                                                                           review
+## 1 My only complain about the app is that it keeps crashing whenever I try to go in and I just reinstalled it and downloaded all my favorite books that I had on it .  And it keeps on crashing every time I go into the the app.</code></pre>
+<p>Before we can run our sentiment analysis, we need to pre-process our text data. This often involves stripping punctuation, removing uninformative stop words (e.g., “the”, “a”, “and”), as well as other cleaning steps. Eventually, our “cleaned” reviews will look like this:</p>
 <p><img src="images/text_cleaning.PNG" /></p>
-<p>Now that the text is cleaned, we can use the “syuzhet” package in R to calculate a sentiment “score” for each review. For example, words like “garbage” will get negative scores, while a word like “pleasant” gets a postive score. The total gets you to the overall score for the review.</p>
+<p>After cleaning the text, I used the “syuzhet” package in R to calculate a sentiment “score” for each review. For example, words like “garbage” will get negative scores, while a word like “pleasant” gets a postive score. The total gets you to the overall score for the review.</p>
 <p><img src="images/sentiment_score.png" />
 (<em>These scores are pulled from “lexicons” assembled by literary researchers. I’m using Syuzhet, <a href="https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6">the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab</a>.</em>)</p>
 <p>After we calculate a sentiment score for every review, we can identify “negative”, “positive” or “neutral” reviews (i.e., reviews with a negative, positive, or zero sentiment score respectively).</p>
@@ -90,7 +83,7 @@ my_palette &lt;- c(red, yellow, green)
 
 ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
   geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
-  labs(title = &#39;Users left more negative reviews on ver. 5.10.&#39;,
+  labs(title = &#39;Sentiment improved through ver. 5.9 but soured with recent updates.&#39;,
        subtitle = &#39;Sentiment by App Version&#39;,
        x = &#39;App Version&#39;, 
        y = &#39;Percent of Reviews&#39;) +
@@ -99,164 +92,80 @@ ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = perc
         panel.grid.minor = element_blank()) +
   scale_y_continuous(labels = scales::percent) + 
   scale_fill_manual(name = &#39;Sentiment&#39;, values = my_palette)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
 <p>So what are these negative reviews talking about? If we look at a few examples, we can see some pain points that users are experiencing.</p>
 <p><img src="images/negative_reviews.png" /></p>
-<p>One of the users mentions “crash” and another one mentioned “ink”, which is Tapas’ in-app currency for purchasing premium content. The word cloud below shows some of the most common words associated with mentions of “crash,” “freeze” or “bug”. The other word cloud shows the most common words associated with “ink”.</p>
-<pre class="r"><code>#grepl(&#39;crash|freeze&#39;, review_cleaned)
-crash &lt;- reviews %&gt;% filter(sentiment_direction == &#39;negative&#39;) 
-crash_words &lt;- crash %&gt;% 
-  select(review_cleaned) %&gt;%
-  unnest_tokens(output = word, input = review_cleaned) %&gt;%
-  count(word, sort = TRUE)
-
-colfun &lt;- colorRampPalette(c(lightred, red))
-set.seed(123) # for reproducibility 
-wordcloud(words = crash_words$word, freq = crash_words$n, min.freq = 5, max.words=200, random.order=FALSE, rot.per=0.35, col = colfun(8))</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
+<p>As we can see, we were able to capture the example 5-star review as a negative review based on its sentiment score. So <em>in addition to ratings, we can also identify negative reviews based on sentiment score.</em></p>
+<p>Crashes seem to be a common problem, while another user mentioned “ink”, which is Tapas’ in-app currency for purchasing premium content. Next, we’ll use keyword extraction to identify what are the most common keywords that appear in negative reviews.</p>
+</div>
 </div>
 <div id="keyword-extraction" class="section level3">
 <h3>Keyword Extraction</h3>
-<pre class="r"><code>complaints &lt;- reviews %&gt;%
-  unnest_tokens(output = sentence, input = review, token = &#39;sentences&#39;) %&gt;%
-  select(rating, sentence) %&gt;%
-  mutate(sentence_cleaned = cleanText(sentence)) %&gt;%
-  mutate(sentiment_score = get_sentiment(sentence_cleaned)) %&gt;%
-  filter(rating &lt; 3 | sentiment_score &lt; 0)</code></pre>
-<pre class="r"><code>kable(head(complaints %&gt;% filter(rating &lt; 3) %&gt;% select(rating, sentence)))</code></pre>
-<table>
-<colgroup>
-<col width="2%" />
-<col width="97%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th align="right">rating</th>
-<th align="left">sentence</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="right">1</td>
-<td align="left">i’ll be honest, this app is pretty good, and i love the stories in it, but they’ve started going to severe lengths with their censorship.</td>
-</tr>
-<tr class="even">
-<td align="right">1</td>
-<td align="left">this is honestly just infuriating, because so many artists are being forced to go over their old comics and edit them to cover up scenes that were even slightly sexual, which takes away from time they could be using to make legitimate updates.</td>
-</tr>
-<tr class="odd">
-<td align="right">1</td>
-<td align="left">it’s really really dumb.</td>
-</tr>
-<tr class="even">
-<td align="right">2</td>
-<td align="left">honestly i like everything about tapas but it’s too expensive if u only read manga on the app like me then the best deal you can get is $1=4 chapters.</td>
-</tr>
-<tr class="odd">
-<td align="right">2</td>
-<td align="left">yeah you can earn the ink but there’s multiple problems with that, if you try to earn it through apps then it doesn’t work at all, the poles work but take a lot of time for very little reward and the ads ur only allowed a certain amount every so often.</td>
-</tr>
-<tr class="even">
-<td align="right">2</td>
-<td align="left">the price just makes people wanna go to pirating cites instead, i think if the prices were lowered then more people would be willing to actually pay for the content instead of stealing it online.</td>
-</tr>
-</tbody>
-</table>
-<pre class="r"><code>kable(head(complaints %&gt;% filter(rating &gt;= 3) %&gt;% select(rating, sentence)))</code></pre>
-<table>
-<colgroup>
-<col width="1%" />
-<col width="98%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th align="right">rating</th>
-<th align="left">sentence</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="right">4</td>
-<td align="left">i like the app the comics they have are some i’ve been looking for just that it has this problem where it shows black pages and even when i close the comic and reopen it, it’s still black then the app eventually crashes its happened three times so far and i’ve been waiting for them to fix it, so if it could be fixed it’d my experience better</td>
-</tr>
-<tr class="even">
-<td align="right">5</td>
-<td align="left">the only thing though is as of late, when i try to select a comic to read, the app freezes and i have to constantly open and close it to try to read.</td>
-</tr>
-<tr class="odd">
-<td align="right">5</td>
-<td align="left">when i do suceed i maybe get two scrolls before it freezes again and then blacks out and shuts itself down.</td>
-</tr>
-<tr class="even">
-<td align="right">5</td>
-<td align="left">the app might need an update for bugs.</td>
-</tr>
-<tr class="odd">
-<td align="right">5</td>
-<td align="left">overall an amazing app to read webtoons through legit way but recently it has been crashing a lot.</td>
-</tr>
-<tr class="even">
-<td align="right">3</td>
-<td align="left">used to be obsessed with this app in middle school.</td>
-</tr>
-</tbody>
-</table>
-<pre class="r"><code>udmodel &lt;- udpipe::udpipe_download_model(language = &#39;english&#39;)
-udmodel_english &lt;- udpipe::udpipe_load_model(udmodel$file_model)</code></pre>
-<pre class="r"><code>review_vector &lt;- as.character(reviews %&gt;% filter(rating &lt; 3) %&gt;% select(review_cleaned))
-complaint_detail &lt;- udpipe_annotate(udmodel_english, review_vector)
-complaint_data &lt;- as.data.frame(complaint_detail)</code></pre>
-<pre class="r"><code>## Co-occurrences: How frequent do words follow one another even if we would skip 2 words in between
-stats &lt;- udpipe::cooccurrence(x = complaint_data$lemma, relevant = complaint_data$upos %in% c(&#39;NOUN&#39;, &#39;ADJ&#39;, &#39;VERB&#39;), skipgram = 2)</code></pre>
-<pre class="r"><code>wordnetwork &lt;- head(stats, 50)
-wordnetwork &lt;- graph_from_data_frame(wordnetwork)
-ggraph(wordnetwork, layout = &quot;fr&quot;) +
-  geom_edge_link(aes(width = cooc, edge_alpha = cooc), edge_colour = &quot;red&quot;) +
-  geom_node_text(aes(label = name), size = 4) +
-  theme(legend.position = &quot;none&quot;) +
-  labs(title = &quot;Cooccurrences within 3 words distance&quot;, subtitle = &quot;Nouns, Adjectives, and Verbs&quot;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" width="672" /></p>
-<pre class="r"><code>stats &lt;- keywords_rake(x = complaint_data, term = &#39;lemma&#39;, group = &#39;doc_id&#39;, relevant = complaint_data$upos %in% c(&#39;NOUN&#39;, &#39;ADJ&#39;, &#39;VERB&#39;))
+<div id="what-are-common-keywords-among-negative-reviews" class="section level4">
+<h4>“What are common keywords among negative reviews?”</h4>
+<p>We saw that the issue of “crashes” appear commonly in the reviews, but are there other keywords that we should look for? There are many different algorithms/approaches for identifying key words/topics in text data. A popular approach is the <a href="https://monkeylearn.com/keyword-extraction/">“Rapid Automatic Keyword Extraction” (“RAKE”) algorithm</a>, which identifies the most relevant words and phrases that commonly occur together (i.e., co-occurences).</p>
+<p>For this step, I’ll define “negative” reviews as those with (1) a rating lower than 3 stars, or (2) a rating with a negative sentiment score.</p>
+<p>I used r’s “udpipe” package to run a RAKE algorithm on these negative reviews. The udpipe package lets us identify words that commonly occur with each other, and it identifies the part-of-speech for each word (i.e., nouns, adjectives, or verbs).</p>
+<p>One thing we can do is visualize a word “network”, to see some of the most common nouns, adjectives, and verbs in the negative reviews and what other words are associated with them:
+<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-18-1.png" width="672" />
+From this word network, we see that the most common phrase is “read comic”, which makes sense considering that Tapas is an app for reading comcis. We can also see some other interesting associations. The cluster with words like “freeze”, “crash”, “open”, “load”, or “time” indicates performance issues with the app crashing, or even issues with the time it takes to load. Another common association is “spend money”, which may reflect complaints about Tapas’ pay-wall for premium content. These insights are consistent with the example reviews we looked at before.</p>
+<p>There also seem to be positive associations: “love story” and “great comic” indicate that people enjoy the content on Tapas.</p>
+<p>We can also plot common key phrases in a bar plot.</p>
+<pre class="r"><code>stats &lt;- keywords_rake(x = complaint_data, 
+                       term = &#39;lemma&#39;, 
+                       group = &#39;doc_id&#39;, 
+                       relevant = complaint_data$upos %in% c(&#39;NOUN&#39;, &#39;ADJ&#39;, &#39;VERB&#39;))
 
 stats_chart &lt;- stats %&gt;% 
-  head(20) %&gt;% 
+  head(15) %&gt;% 
   arrange(rake) %&gt;%
-  mutate(keyword = factor(keyword, levels = keyword))
+  mutate(keyword = factor(keyword, levels = keyword),
+         perf_issue = grepl(&#39;freeze|crash|fix|bug|time|long&#39;, keyword))
 
-ggplot(stats_chart, aes(x = keyword, y = rake)) + 
+my_palette &lt;- c(lightblue, blue)
+
+ggplot(stats_chart, aes(x = keyword, y = rake, fill = perf_issue)) + 
   geom_col() + 
+  labs(title = &#39;Common keywords in negative reviews.&#39;,
+       subtitle = &#39;Common keywords in negative reviews.&#39;,
+       x = &#39;RAKE&#39;, 
+       y = &#39;Keyword&#39;) + 
   theme_light() + 
-  coord_flip() + 
-  labs(x = &#39;RAKE&#39;, y = &#39;Keyword&#39;) + 
-  ggtitle(&#39;Most common keywords identified by RAKE&#39;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
-<pre class="r"><code>reviews &lt;- reviews %&gt;% mutate(crash_flag = grepl(&#39;crash|freez|bug|fix&#39;, review_cleaned))
-
-crash_month &lt;- reviews %&gt;% 
-  group_by(month, crash_flag) %&gt;%
-  summarize(percentage = n())
-
-crash_ver &lt;- reviews %&gt;% 
-  group_by(app_version_clean, crash_flag) %&gt;%
-  summarize(percentage = n())
-
-plot1 &lt;- ggplot(crash_month, aes(fill = crash_flag, x = month, y = percentage)) +  
-  geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
-  scale_x_date(date_breaks = &quot;1 month&quot;, date_labels =  &quot;%b %y&quot;) +
-  scale_y_continuous(labels = scales::percent) + 
-  scale_fill_manual(name = &#39;Mention Crash&#39;, values = c(&#39;gray&#39;, &#39;red3&#39;)) + 
-  labs(x = &#39;Month&#39;, y = &#39;Percent of Reviews&#39;) +
-  theme_light() + 
-  ggtitle(&#39;% of Reviews that Mention Crash, Freeze, Bug, or Fix&#39;)
-
-plot2 &lt;- ggplot(crash_ver, aes(fill = crash_flag, x = app_version_clean, y = percentage)) +  
-  geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
-  scale_y_continuous(labels = scales::percent) + 
-  scale_fill_manual(name = &#39;Mention Crash&#39;, values = c(&#39;gray&#39;, &#39;red3&#39;)) + 
-  labs(x = &#39;App Version&#39;, y = &#39;Percent of Reviews&#39;) +
-  theme_light()
-
-grid.arrange(plot1, plot2, nrow = 2)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = &#39;none&#39;) +
+  scale_fill_manual(values = my_palette) +
+  coord_flip()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
+<p>The top phrases relate to the function of the app, but after that, most of the phrases seem related to performance issues. Namely, we can see that words/phrases like “fix bug”, “keep freeze”, and “long time” appear frequently in negative reviews. So it looks like <em>performance issues are the most common complaint in negative reviews.</em></p>
 </div>
+</div>
+</div>
+<div id="regression" class="section level2">
+<h2>Regression</h2>
+<div id="do-performance-issues-explain-everything-about-why-we-get-negative-reviews" class="section level4">
+<h4>“Do performance issues explain everything about why we get negative reviews?”</h4>
+<p>So did we crack the puzzle? Do performance issues really explain all the negative reviews? Or is something else at play?</p>
+<p>As an initial step, now that we know that we can search for keywords like “freeze”, “fix”, “load”, etc. to identify reviews related to performance issues, we can look at trends in these sort of reviews. Let’s define the metric “Performance Issue Rate” as the percent of reviews with these “performance-issue” keywords.
+<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-20-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-21-1.png" width="672" /></p>
+<p>So it looks like the improvement in ratings is driven by improvements in app performance. We can see how much Performance Issue Rate affect ratings by running a quick OLS regression.
+<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" width="672" />
+The regression shows that across all app versions, performance issues explain about 48 percent of the variance in ratings. It appears that the regression fits better for earlier app versions, but is not a great fit for versions 5.9, 5.10 or 5.12 (removing app versions 5.9, 5.10, and 5.12 bumps the R-squared up to 92 percent). This suggests that although performance explains most of the change in ratings for earlier app versions, other issues besides performance drove the drop in ratings for versions 5.10 and 5.12.</p>
+</div>
+</div>
+<div id="conclusion-and-next-steps" class="section level2">
+<h2>Conclusion and Next Steps</h2>
+<p>From our EDA and text mining analyses on app reviews for the Tapas app, we’ve arrived at the following takeaways:</p>
+<ul>
+<li><p><strong>Ratings grew</strong> from an average of 2.59 (ver 5.5) to 3.46 (ver 5.9), but fell with ver. 5.10 and 5.12.</p></li>
+<li><p>The growth in ratings were largely driven by <strong>improved app performance.</strong></p></li>
+<li><p><strong>Other issues besides app performance</strong> are driving the fall in ratings for the more recent updates (ver. 5.10 and 5.12.)</p></li>
+</ul>
+<p>Hopefully this post showed you how data science techniques can help you explore and unlock deeper insights from your data. Of course, this post only touches on the surface of potential analyses we could run on the review data. Some next steps could include:</p>
+<ul>
+<li><p>Running a topic model on the reviews (e.g., LDA) to separate the reviews into key topics.</p></li>
+<li><p>Dive deeper into keywords for versions 5.10 and 5.12 to attempt to identify other problems that explain the drop in ratings.</p></li>
+<li><p>Use a web scraper (e.g., beautifulsoup in Python or rvest in R) to collect more reviews than the 500 max allowed by the Apple API.</p></li>
+</ul>
 </div>
