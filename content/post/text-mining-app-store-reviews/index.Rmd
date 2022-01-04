@@ -1,12 +1,12 @@
 ---
-title: "Analyzing Webtoon App Reviews"
+title: "Webtoon App Reviews: Sentiment Analysis and Keyword Extraction"
 author: "Tato Lu"
 date: "10/24/2021"
 categories: ["R"]
 tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling", "linear regression", "R"]
 ---
 ![](images/app_store_reviews.PNG)
-I currently work in economic consulting, but my first paid gig was drawing comics for Tapas Media, a webtoon platform. I used to think that these two jobs were worlds apart. But even though one deals with million-dollar litigations and the other deals with funny drawings and fart jokes, they're really about the same thing: telling stories. So in a weird way, my first job at Tapas started my journey as a storyteller. Needless to say, the company still holds a place near and dear to my heart.
+I currently work in economic consulting, but my first paid job was drawing comics for Tapas Media, a webtoon platform. I used to think that these two jobs were worlds apart. But even though one deals with million-dollar litigations and the other deals with funny drawings and fart jokes, they're really about the same thing: telling stories. So in a weird way, my first job at Tapas started my journey as a storyteller. Needless to say, the company still holds a place near and dear to my heart.
 
 I thought it'd be fitting for my first portfolio project to pay homage to my first job, so I'll be using Apple Store reviews to tell a story about the [Tapas app](https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126).  The goal of this project is to answer the following questions:
 

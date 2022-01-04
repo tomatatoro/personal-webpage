@@ -2,8 +2,6 @@
 title: "About Me"
 ---
 
-Welcome to my webpage! My name is Tato, and I currently work as an economic consultant at [Analysis Group](https://www.analysisgroup.com/). I hold a dual-degree in Statistics and Economics from UC Berkeley and an MBA from NYU Stern. 
+Welcome! My name is Tato. I'm a coder, designer, and data enthusiast, and I'm passionate about telling stories. I have over three years of experience working in [economic consulting](https://www.analysisgroup.com/), where I solve complex, analytical problems at the intersection of business, economics, and law. I hold a dual-degree in Statistics and Economics from UC Berkeley and an MBA from NYU Stern. 
 
-One of the favorite parts of my job is working with data. I see data as a sandbox. At first glance, it's just a box full of sand, and every datapoint is just one grain among millions. But with the right tools, you can sculpt and mold the sand into fantastic structures. In the same way, we have tools to extract structured insights from unstructured data.
-
-So if you're ready to jump in the sandbox, let's talk! You can reach me via email or LinkedIn.
+Do you have a data story you want to tell? Let's talk! You can reach me via email or LinkedIn.
