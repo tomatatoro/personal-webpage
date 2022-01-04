@@ -1,20 +1,22 @@
 ---
-title: "Ouch! Extracting Pain Points from App Reviews"
+title: "Analyzing Webtoon App Reviews"
 author: "Tato Lu"
 date: "10/24/2021"
 categories: ["R"]
-tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling", "linear regression"]
+tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling", "linear regression", "R"]
 ---
 ![](images/app_store_reviews.PNG)
-Today, companies are faced with huge volumes of unstructured text data in the form of social media posts, online reviews, emails, etc. Those data are key in answering questions like:
+I currently work in economic consulting, but my first paid gig was drawing comics for Tapas Media, a webtoon platform. I used to think that these two jobs were worlds apart. But even though one deals with million-dollar litigations and the other deals with funny drawings and fart jokes, they're really about the same thing: telling stories. So in a weird way, my first job at Tapas started my journey as a storyteller. Needless to say, the company still holds a place near and dear to my heart.
 
-* **What does Twitter think of our brand?**
+I thought it'd be fitting for my first portfolio project to pay homage to my first job, so I'll be using Apple Store reviews to tell a story about the [Tapas app](https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126).  The goal of this project is to answer the following questions:
 
-* **What key features are Amazon reviewers buzzing about?**
+* **How have ratings changed for the Tapas app over the past few months?**
 
-* **What pain points are users experiencing on our latest app?**
+* **What's the #1 problem that users experience with the Tapas app?**
 
-In this post, I'll showcase a few data science techniques we can use to answer those questions. We'll cover *exploratory data analysis ("EDA")*, as well as text mining techniques like *sentiment analysis* and *keyword extraction*. I'll be using *R* to download, analyze, and visualize key patterns in *Apple App Store reviews*. 
+* **Has Tapas dealt with the problem, and if so, did it work?**
+
+By the end of this post, we'll see that as of XX, ratings have improved compared to 
 
 ## Setup and Loading Data
 
@@ -50,7 +52,7 @@ yellow <- wesanderson::wes_palettes$Royal2[4]
 lightblue <- lighten(blue, amount = 0.5, method = 'relative', space = 'combined')
 ```
 
-To start, we'll use the **appler** package to download the latest user reviews for a given app ID. As a webtoon enthusiast,  I'm a big fan of the [Tapas app](https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126), so I'll be analyzing the reviews for their app!
+To start, I use the **appler** package to download the latest user reviews for the Tapas app. I downloaded this data as of October 24, 2021.
 
 (_disclaimer: the App Store API only allows users to download the latest 500 reviews. But even if you have thousands of reviews, you can still apply the same analyses!_)
 
@@ -65,17 +67,16 @@ reviews <- appler::get_apple_reviews(578836126, country = 'us', all_results = TR
 reviews <- readRDS('app_reviews.rds')
 ```
 
-Once we have the data downloaded, we can use dim() and head() to look at how large the dataset is, and what it looks like.
+Afted downloading the data, I use dim() and head() to take a peek at the dataset.
 ```{r, message = FALSE}
 dim(reviews)
 head(reviews, 3)
 ```
-The dataset has 500 rows, with 7 variables. The variables we'll be working with most are review_time, app_version, rating, and review. 
+So I have a dataset with 500 rows and 7 variables, where each row represents one review. Each row contains data on the review rating, when the review was written, the app version at the time, and the review itself.
 
-## Exploratory Data Analysis
-#### "What trends do we see over time?"
+## How have ratings changed for the Tapas app over the last few months?
 
-Before diving into any analysis, let's do some EDA get a sense of the data structure and what patterns might be worth exploring. To start, I looked at the distribution of data over the past few months.
+One of the first things I like to do is look at the distribution of data over time. This helps me identify gaps in the data, though this is more likely to be an issue for particularly large datasets from clients. 
 ```{r, echo = FALSE, message = FALSE}
 reviews <- reviews %>% 
   mutate(review_time = as.Date(review_time), 
@@ -109,7 +110,7 @@ ggplot(monthly_count, aes(x = month, y = n, fill = month_flag)) +
   geom_text(aes(label = n), vjust = -0.5)
 ```
 
-Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people left reviews for Tapas in recent months. It's  well-known that dissatisfied customers are highly likely to leave negative reviews, while satisified customers are unlikely to leave positive reviews. So the drop in reviews could also be seen as evidence of improvements in the app. What if we looked at the app's average rating over time?
+Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people left reviews for Tapas in recent months. The next thing I'd like to look at is the average rating over time.
 
 ```{r, echo = FALSE, message = FALSE}
 avg_rating <- reviews %>% 
@@ -138,7 +139,8 @@ ggplot(avg_rating, aes(x = month, y = avg_rating, fill = month_flag))+
   geom_text(aes(label = formatC(avg_rating, format = 'f', digits = 2)), vjust = -0.8)
 ```
 
-Plotting ratings over time paints a similar narrative, that the Tapas app has generally improved over time. The average rating was steadily growing up until July 2021. But after that point, ratings took a dip, and by September, the average rating was essentially back where it started. The App Store provides data on app versions, so we can also look at ratings across different app versions. 
+Seems like the Tapas app has generally improved over time. The average rating was steadily growing up until July 2021. But after that point, ratings took a dip, and by September, the average rating was essentially back where it started. The App Store provides data on app versions, so we can also look at ratings across different app versions. 
+
 ```{r, echo = FALSE}
 reviews <- reviews %>% mutate(app_version_clean = stringr::str_extract(as.character(app_version), '5\\.[0-9]{1,2}'))
 
@@ -204,21 +206,21 @@ ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating)) +
 
 So we discovered that *Tapas ratings improved through the release of version 5.9 in July*, but *ratings have fallen in recent months for versions 5.10-5.12*.
 
-## What's driving the negative reviews?
+## What's the #1 problem that users have with the Tapas app?
 
-So far we've only looked at ratings, but there's a whole gold-mine of information we've yet to touch: the reviews! There are hundreds of ways you can analyze text data. I'll focus on **sentiment analysis** and **keyword extraction**, and we'll finish it up with a simple linear regression. 
+Now that we see the trend in ratings, my next question would be to look at the negative reviews and try to identify what's the #1 problem users are dealing with. 
 
-### Text Cleaning and Sentiment Analysis
-#### "How do we identify negative reviews?"
+### Identifying Negative Reviews
 
-[Sentiment analysis](https://monkeylearn.com/blog/text-mining-sentiment-analysis/) is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. With sentiment analysis, you can get a deeper understanding of public opinion about your company/product/service.
+We could simply use reviews with low star ratings to identify negative reviews, but there are also four- or five-star reviews that sometimes include hidden criticisms of the app, or as I like to call them: "I love it, but..." reviews. For example, this 5-star review talks about an issue with the app crashing. If we filtered on rating, we wouldn't capture a review like this. 
 
-Sentiment analysis is helpful in this case because there can still be reviews with positive ratings, but the text itself is negative. For example, this 5-star review talks about an issue with the app crashing. If we filtered on rating, we wouldn't capture a review like this. So when identifying pain points, we'll want to use sentiment analysis to keep reviews like this in the population.
 ```{r}
 reviews %>% filter(id == 7882943052) %>% select(rating, title, review)
 ```
 
-Before we can run our sentiment analysis, we need to pre-process our text data. This often involves stripping punctuation, removing uninformative stop words (e.g., "the", "a", "and"), as well as other cleaning steps. Eventually, our "cleaned" reviews will look like this:
+So to help identify all negative reviews, I employ sentiment analysis. [Sentiment analysis](https://monkeylearn.com/blog/text-mining-sentiment-analysis/) is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. With sentiment analysis, you can get a deeper understanding of public opinion about your company/product/service.
+
+Before running my sentiment analysis, I do some cleaning on the reviews: stripping punctuation, removing uninformative stop words (e.g., "the", "a", "and"), as well as other cleaning steps. Ultimately, my "cleaned" reviews look like this:
 ```{r, echo = FALSE, message = FALSE}
 cleanText <- function(x){
   temp <- gsub('’','\'',x)
@@ -250,7 +252,7 @@ example_sentiment <- example_words %>% mutate(sentiment_score = syuzhet::get_sen
 ![](images/sentiment_score.png)
 (_These scores are pulled from "lexicons" assembled by literary researchers. I'm using Syuzhet, [the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab](https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6)._)
 
-After we calculate a sentiment score for every review, we can identify "negative", "positive" or "neutral" reviews (i.e., reviews with a negative, positive, or zero sentiment score respectively). 
+After I calculate a sentiment score for every review, I can identify "negative", "positive" or "neutral" reviews (i.e., reviews with a negative, positive, or zero sentiment score respectively). 
 
 ```{r, echo = FALSE, message = FALSE}
 sentiment_order <- c('negative', 'neutral', 'positive')
@@ -265,7 +267,7 @@ reviews <- reviews %>%
          ) %>%
   mutate(sentiment_direction = factor(sentiment_direction, levels = sentiment_order))
 ```
-So if we saw relatively poor ratings on version 5.10, we should also see more negative sentiment. Sure enough, if we plot sentiment by app version, we see exactly that. 
+As a sanity check, I plot sentiment by app version. The resulting chart is consistent with our earlier observation that users didn't seem to like version 5.10. 
 
 ```{r, message = FALSE}
 sent_ver <- reviews %>% 
@@ -297,14 +299,10 @@ knitr::kable(reviews %>% filter(sentiment_direction == 'positive') %>% head() %>
 ```
 ![](images/negative_reviews.png)
 
-As we can see, we were able to capture the example 5-star review as a negative review based on its sentiment score. So *in addition to ratings, we can also identify negative reviews based on sentiment score.* 
+Crashes seem to be a common problem, while another user mentioned "ink", which is Tapas' in-app currency for purchasing premium content. How do we know what is the #1 problem? To help answer this, I use an algorithm to extract the most common keywords from these negative reviews.
 
-Crashes seem to be a common problem, while another user mentioned "ink", which is Tapas' in-app currency for purchasing premium content. Next, we'll use keyword extraction to identify what are the most common keywords that appear in negative reviews.
-
-### Keyword Extraction
-#### "What are common keywords among negative reviews?"
-
-We saw that the issue of "crashes" appear commonly in the reviews, but are there other keywords that we should look for? There are many different algorithms/approaches for identifying key words/topics in text data. A popular approach is the ["Rapid Automatic Keyword Extraction"  ("RAKE") algorithm](https://monkeylearn.com/keyword-extraction/),  which identifies the most relevant words and phrases that commonly occur together (i.e., co-occurences).
+### Identifying Common Keywords in Negative Reviews
+There are many different algorithms/approaches for identifying key words/topics in text data. A popular approach is the ["Rapid Automatic Keyword Extraction"  ("RAKE") algorithm](https://monkeylearn.com/keyword-extraction/),  which identifies the most relevant words and phrases that commonly occur together (i.e., co-occurences).
 
 For this step, I'll define "negative" reviews as those with (1) a rating lower than 3 stars, or (2) a rating with a negative sentiment score.
 ```{r, echo = FALSE}
@@ -366,12 +364,8 @@ ggplot(stats_chart, aes(x = keyword, y = rake, fill = perf_issue)) +
 
 The top phrases relate to the function of the app, but after that, most of the phrases seem related to performance issues. Namely, we can see that words/phrases like "fix bug", "keep freeze", and "long time" appear frequently in negative reviews. So it looks like *performance issues are the most common complaint in negative reviews.*
 
-## Regression
-#### "Do performance issues explain everything about why we get negative reviews?"
-
-So did we crack the puzzle? Do performance issues really explain all the negative reviews? Or is something else at play?
-
-As an initial step, now that we know that we can search for keywords like "freeze", "fix", "load", etc. to identify reviews related to performance issues, we can look at trends in these sort of reviews. Let's define the metric "Performance Issue Rate" as the percent of reviews with these "performance-issue" keywords.
+## How has Tapas dealt with the problem?
+Now that we know that we can search for keywords like "freeze", "fix", "load", etc. to identify reviews related to performance issues, we can look at trends in these sort of reviews. Let's define the metric "Performance Issue Rate" as the percent of reviews with these "performance-issue" keywords.
 ```{r, echo = FALSE, message = FALSE}
 reviews <- reviews %>% mutate(crash_flag = grepl('crash|freez|bug|fix|load', review_cleaned))
 
@@ -424,7 +418,9 @@ ggplot(crash_ver, aes(x = app_version_clean, y = percentage)) +
   geom_text(aes(label = scales::percent(percentage, accuracy = 1L)), vjust = -0.8)
 ```
 
-So it looks like the improvement in ratings is driven by improvements in app performance. We can see how much Performance Issue Rate affect ratings by running a quick OLS regression. 
+Great! It looks like Tapas has made improvements to their app so that fewer people are complaining about performance-issues, and so their ratings improved. 
+
+A follow-up question would be: how much has fixing performance issues helped with the ratings? Are there other issues that we're overlooking? To answer these questions, we can see how much Performance Issue Rate affect ratings by running a quick OLS regression. 
 ```{r, echo = FALSE, message = FALSE}
 regression_data <- crash_ver %>% left_join(avg_rating_by_ver)
 myModel <- lm(avg_rating ~ percentage, data = regression_data)
@@ -462,7 +458,7 @@ summary(myModel2)
 
 ## Conclusion and Next Steps
 
-From our EDA and text mining analyses on app reviews for the Tapas app, we've arrived at the following takeaways:
+By looking at the Apple Store reviews for the Tapas app, we uncovered the following story:
 
 * **Ratings grew** from an average of 2.59 (ver 5.5) to 3.46 (ver 5.9), but fell with ver. 5.10 and 5.12.
 
@@ -470,7 +466,7 @@ From our EDA and text mining analyses on app reviews for the Tapas app, we've ar
 
 * **Other issues besides app performance** are driving the fall in ratings for the more recent updates (ver. 5.10 and 5.12.)
 
-Hopefully this post showed you how data science techniques can help you explore and unlock deeper insights from your data. Of course, this post only touches on the surface of potential analyses we could run on the review data. Some next steps could include:
+Although the data paints a happy trajectory for Tapas, we've ended on a bit of a cliffhanger! Of course, this post only scratches the surface of what else we can do with review data. Some potential next steps could include:
 
 * Running a topic model on the reviews (e.g., LDA) to separate the reviews into key topics.
 

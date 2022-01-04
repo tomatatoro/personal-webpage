@@ -22,15 +22,15 @@ menu:
 
 params:
   homeInfoParams:
-    Title: "Portfolio"
+    Title: "Tato's Portfolio Site"
     Content: >
-      **Tato** is an economist and data enthusiast currently working in consulting. Experienced in solving analytical problems at the intersection of business, economics, and law. 
+      Welcome to my portfolio! I'm a coder, designer, and data enthusiast, and I'm passionate about telling stories. I have over three years of experience working in economic consulting, where I solve complex, analytical problems at the intersection of business, economics, and law. 
       
       >
-      - **Technical Skills:** R, Python, SQL, Excel, and Tableau.
+      - **Technical Skills:** R, SAS, SQL, Excel, and Tableau.
       
       >
-      - **Interests:** Data Visualization, Machine Learning (Clustering, Classification, Regression, NLP), Survey Design"
+      - **Interests:** Data Visualization, Machine Learning (Clustering, Classification, Regression, NLP), Survey Design
       
   socialIcons:
     - name: github
