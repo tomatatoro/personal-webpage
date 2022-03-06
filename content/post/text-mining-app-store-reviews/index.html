@@ -8,47 +8,42 @@ tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling", "lin
 
 
 
-<p><img src="images/app_store_reviews.PNG" />
-I currently work in economic consulting, but my first paid job was drawing comics for Tapas Media, a webtoon platform. I used to think that these two jobs were worlds apart. But even though one deals with million-dollar litigations and the other deals with funny drawings and fart jokes, they’re really about the same thing: telling stories. So in a weird way, my first job at Tapas started my journey as a storyteller. Needless to say, the company still holds a place near and dear to my heart.</p>
-<p>I thought it’d be fitting for my first portfolio project to pay homage to my first job, so I’ll be using Apple Store reviews to tell a story about the <a href="https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126">Tapas app</a>. The goal of this project is to answer the following questions:</p>
+<p><img src="images/app_store_reviews.PNG" /></p>
+<p><a href="https://github.com/tomatatoro/personal-webpage/blob/main/content/post/text-mining-app-store-reviews/index.Rmd">See GitHub page for underlying code.</a></p>
+<p>I currently work in economic consulting, but my first paid job was drawing comics for Tapas Media, a webtoon platform. I used to think that these two jobs were worlds apart. But even though one deals with million-dollar lawsuits and the other deals with funny drawings and fart jokes, they’re really about the same thing: telling stories. So in a weird way, my first job at Tapas started my journey as a storyteller. Needless to say, the company still holds a place near and dear to my heart.</p>
+<p>I thought it’d be fitting for my first portfolio project to pay homage to my first job, so I’ll be using Apple Store reviews to tell a story about the <a href="https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126">Tapas app</a>. The goal of this project is to see <strong>what the user experience has been like with the Tapas app.</strong> Specifically, I answer the following questions:</p>
 <ul>
 <li><p><strong>How have ratings changed for the Tapas app over the past few months?</strong></p></li>
 <li><p><strong>What’s the #1 problem that users experience with the Tapas app?</strong></p></li>
 <li><p><strong>Has Tapas dealt with the problem, and if so, did it work?</strong></p></li>
 </ul>
-<p>By the end of this post, we’ll see that as of XX, ratings have improved compared to</p>
 <div id="setup-and-loading-data" class="section level2">
 <h2>Setup and Loading Data</h2>
 <p>To start, I use the <strong>appler</strong> package to download the latest user reviews for the Tapas app. I downloaded this data as of October 24, 2021.</p>
 <p>(<em>disclaimer: the App Store API only allows users to download the latest 500 reviews. But even if you have thousands of reviews, you can still apply the same analyses!</em>)</p>
 <pre class="r"><code># App store ID can be found in the app store URL: https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126
 reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_results = TRUE)</code></pre>
-<p>Afted downloading the data, I use dim() and head() to take a peek at the dataset.</p>
-<pre class="r"><code>dim(reviews)</code></pre>
-<pre><code>## [1] 500   7</code></pre>
-<pre class="r"><code>head(reviews, 3)</code></pre>
-<pre><code>##           id         review_time            author app_version
-## 1 7941139931 2021-10-22 10:41:28    RockPunk249865      5.12.1
-## 2 7934834810 2021-10-20 14:16:21     TommyMaroon77      5.12.1
-## 3 7926951399 2021-10-18 06:12:29 read the 2nd part      5.12.0
-##                 title rating
-## 1 The new censorship.      1
-## 2 It’s a good app but      4
-## 3                Cost      2
-##                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    review
-## 1                                                                                                                                                                                                  I’ll be honest, this app is pretty good, and I love the stories in it, but they’ve started going to severe lengths with their censorship. This is honestly just infuriating, because so many artists are being forced to go over their old comics and edit them to cover up scenes that were even slightly sexual, which takes away from time they could be using to make legitimate updates. It’s really really dumb.
-## 2                                                                                                                                                                                                                                                                 I like the app the comics they have are some I’ve been looking for just that it has this problem where it shows black pages and even when I close the comic and reopen it, it’s still black then the app eventually crashes its happened three times so far and I’ve been waiting for them to fix it, so if it could be fixed it’d my experience better
-## 3 Honestly I like everything about tapas but it’s too expensive if u only read manga on the app like me then the best deal you can get is $1=4 chapters. Yeah you can earn the ink but there’s multiple problems with that, if you try to earn it through apps then it doesn’t work at all, the poles work but take a lot of time for very little reward and the ads ur only allowed a certain amount every so often. The price just makes people wanna go to pirating cites instead, I think if the prices were lowered then more people would be willing to actually pay for the content instead of stealing it online.</code></pre>
+<p>After downloading the data, we can take a peek at the dataset.</p>
+<pre class="r"><code>glimpse(reviews)</code></pre>
+<pre><code>## Rows: 500
+## Columns: 7
+## $ id          &lt;dbl&gt; 7941139931, 7934834810, 7926951399, 7926310536, 7925628744~
+## $ review_time &lt;dttm&gt; 2021-10-22 10:41:28, 2021-10-20 14:16:21, 2021-10-18 06:1~
+## $ author      &lt;chr&gt; &quot;RockPunk249865&quot;, &quot;TommyMaroon77&quot;, &quot;read the 2nd part&quot;, &quot;K~
+## $ app_version &lt;chr&gt; &quot;5.12.1&quot;, &quot;5.12.1&quot;, &quot;5.12.0&quot;, &quot;5.12.0&quot;, &quot;5.12.0&quot;, &quot;5.12.0&quot;~
+## $ title       &lt;chr&gt; &quot;The new censorship.&quot;, &quot;It’s a good app but&quot;, &quot;Cost&quot;, &quot;Dis~
+## $ rating      &lt;dbl&gt; 1, 4, 2, 1, 1, 2, 5, 5, 2, 5, 4, 2, 3, 2, 5, 5, 1, 2, 5, 5~
+## $ review      &lt;chr&gt; &quot;I’ll be honest, this app is pretty good, and I love the s~</code></pre>
 <p>So I have a dataset with 500 rows and 7 variables, where each row represents one review. Each row contains data on the review rating, when the review was written, the app version at the time, and the review itself.</p>
 </div>
 <div id="how-have-ratings-changed-for-the-tapas-app-over-the-last-few-months" class="section level2">
 <h2>How have ratings changed for the Tapas app over the last few months?</h2>
-<p>One of the first things I like to do is look at the distribution of data over time. This helps me identify gaps in the data, though this is more likely to be an issue for particularly large datasets from clients.
+<p>To start our exploratory analysis, I look at the distribution of reviews over time.
 <img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
 <p>Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people left reviews for Tapas in recent months. The next thing I’d like to look at is the average rating over time.</p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
-<p>Seems like the Tapas app has generally improved over time. The average rating was steadily growing up until July 2021. But after that point, ratings took a dip, and by September, the average rating was essentially back where it started. The App Store provides data on app versions, so we can also look at ratings across different app versions.</p>
-<p>When we plot average ratings by app version, we can see that version 5.10 had the lowest rating since version 5.5.
+<p>Seems like the Tapas app has generally improved over time. The average rating was growing steadily up until July 2021. But from August on, ratings took a dip, and by September, the average rating was essentially back where it started around the beginning of 2021. The App Store provides data on app versions, so we can also look at ratings across different app versions.</p>
+<p>When we plot average ratings by app version, we can see a dip in ratings around version 5.10.
 <img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
 <p>So we discovered that <em>Tapas ratings improved through the release of version 5.9 in July</em>, but <em>ratings have fallen in recent months for versions 5.10-5.12</em>.</p>
 </div>
@@ -97,11 +92,11 @@ ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = perc
 <h3>Identifying Common Keywords in Negative Reviews</h3>
 <p>There are many different algorithms/approaches for identifying key words/topics in text data. A popular approach is the <a href="https://monkeylearn.com/keyword-extraction/">“Rapid Automatic Keyword Extraction” (“RAKE”) algorithm</a>, which identifies the most relevant words and phrases that commonly occur together (i.e., co-occurences).</p>
 <p>For this step, I’ll define “negative” reviews as those with (1) a rating lower than 3 stars, or (2) a rating with a negative sentiment score.</p>
-<p>I used r’s “udpipe” package to run a RAKE algorithm on these negative reviews. The udpipe package lets us identify words that commonly occur with each other, and it identifies the part-of-speech for each word (i.e., nouns, adjectives, or verbs).</p>
+<p>I used R’s “udpipe” package to run a RAKE algorithm on these negative reviews. The udpipe package lets us identify words that commonly occur with each other, and it identifies the part-of-speech for each word (i.e., nouns, adjectives, or verbs).</p>
 <p>One thing we can do is visualize a word “network”, to see some of the most common nouns, adjectives, and verbs in the negative reviews and what other words are associated with them:
 <img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-18-1.png" width="672" />
-From this word network, we see that the most common phrase is “read comic”, which makes sense considering that Tapas is an app for reading comcis. We can also see some other interesting associations. The cluster with words like “freeze”, “crash”, “open”, “load”, or “time” indicates performance issues with the app crashing, or even issues with the time it takes to load. Another common association is “spend money”, which may reflect complaints about Tapas’ pay-wall for premium content. These insights are consistent with the example reviews we looked at before.</p>
-<p>There also seem to be positive associations: “love story” and “great comic” indicate that people enjoy the content on Tapas.</p>
+From this word network, we see that the most common phrase is “read comic”, which makes sense considering that Tapas is an app for reading comcis. There also seem to be positive associations: “love story” and “great comic” indicate that people enjoy the content on Tapas.</p>
+<p>But most interestingly, the cluster with words like “freeze”, “crash”, “open”, “load”, or “time” indicates performance issues with the app crashing, or even issues with the time it takes to load. Another common association is “spend money”, which may reflect complaints about Tapas’ pay-wall for premium content. These insights are consistent with the example reviews we looked at before.</p>
 <p>We can also plot common key phrases in a bar plot.</p>
 <pre class="r"><code>stats &lt;- keywords_rake(x = complaint_data, 
                        term = &#39;lemma&#39;, 
@@ -118,7 +113,7 @@ my_palette &lt;- c(lightblue, blue)
 
 ggplot(stats_chart, aes(x = keyword, y = rake, fill = perf_issue)) + 
   geom_col() + 
-  labs(title = &#39;Common keywords in negative reviews.&#39;,
+  labs(title = &#39;Phrases like &quot;keep freeze&quot; or &quot;long time&quot; indicate performance issues.&#39;,
        subtitle = &#39;Common keywords in negative reviews.&#39;,
        x = &#39;RAKE&#39;, 
        y = &#39;Keyword&#39;) + 
@@ -140,20 +135,20 @@ ggplot(stats_chart, aes(x = keyword, y = rake, fill = perf_issue)) +
 <p>Great! It looks like Tapas has made improvements to their app so that fewer people are complaining about performance-issues, and so their ratings improved.</p>
 <p>A follow-up question would be: how much has fixing performance issues helped with the ratings? Are there other issues that we’re overlooking? To answer these questions, we can see how much Performance Issue Rate affect ratings by running a quick OLS regression.
 <img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" width="672" />
-The regression shows that across all app versions, performance issues explain about 48 percent of the variance in ratings. It appears that the regression fits better for earlier app versions, but is not a great fit for versions 5.9, 5.10 or 5.12 (removing app versions 5.9, 5.10, and 5.12 bumps the R-squared up to 92 percent). This suggests that although performance explains most of the change in ratings for earlier app versions, other issues besides performance drove the drop in ratings for versions 5.10 and 5.12.</p>
+The regression shows that across all app versions, performance issues explain about 48 percent of the variance in ratings. <strong>It appears that the regression fits better for earlier app versions, but is not a great fit for versions 5.9, 5.10 or 5.12</strong> (removing app versions 5.9, 5.10, and 5.12 bumps the R-squared up to 92 percent). This suggests that although performance explains most of the change in ratings for earlier app versions, <strong>there are other issues besides performance drove the drop in ratings for versions 5.10 and 5.12.</strong></p>
 </div>
-<div id="conclusion-and-next-steps" class="section level2">
-<h2>Conclusion and Next Steps</h2>
-<p>By looking at the Apple Store reviews for the Tapas app, we uncovered the following story:</p>
+<div id="next-steps" class="section level2">
+<h2>Next Steps</h2>
+<p>To summarize key takeaways:</p>
 <ul>
-<li><p><strong>Ratings grew</strong> from an average of 2.59 (ver 5.5) to 3.46 (ver 5.9), but fell with ver. 5.10 and 5.12.</p></li>
-<li><p>The growth in ratings were largely driven by <strong>improved app performance.</strong></p></li>
-<li><p><strong>Other issues besides app performance</strong> are driving the fall in ratings for the more recent updates (ver. 5.10 and 5.12.)</p></li>
+<li><p>Despite strong growth in ratings from 2.59 (ver 5.5) to 3.46 (ver 5.9), <strong>ratings are stagnating with the latest versions of the Tapas app.</strong></p></li>
+<li><p>With the exception of versions 5.9, 5.10 and 5.12, <strong>92% of the growth in ratings was driven by improvements to app performance.</strong></p></li>
+<li><p>However, in the latest versions of the app, it appears that <strong>other issues besides app performance are driving the fall in ratings.</strong></p></li>
 </ul>
-<p>Although the data paints a happy trajectory for Tapas, we’ve ended on a bit of a cliffhanger! Of course, this post only scratches the surface of what else we can do with review data. Some potential next steps could include:</p>
+<p>So it looks like the Tapas developers have been hard at work to fix performance issues with its app, and in fact they’ve made considerable progress in early 2021 (from version 5.5 to version 5.9). Although the data paints an impressive trajectory, we’ve ended on a bit of a cliffhanger! Users aren’t complaining about performance issues as much with the latest versions of the app, but app ratings have been stagnating. So the big question is why? Of course, this post only scratches the surface of what else we can do with review data. Some potential <strong>next steps</strong> could include:</p>
 <ul>
-<li><p>Running a topic model on the reviews (e.g., LDA) to separate the reviews into key topics.</p></li>
-<li><p>Dive deeper into keywords for versions 5.10 and 5.12 to attempt to identify other problems that explain the drop in ratings.</p></li>
-<li><p>Use a web scraper (e.g., beautifulsoup in Python or rvest in R) to collect more reviews than the 500 max allowed by the Apple API.</p></li>
+<li><p><strong>Dive deeper on ver. 5.12</strong>: limit the data to version 5.12 to identify the other problems that explain the drop in ratings.</p></li>
+<li><p><strong>Collect more data:</strong> use a web scraper (e.g., beautifulsoup in Python or rvest in R) to collect more reviews than the 500 max allowed by the Apple API.</p></li>
+<li><p><strong>Topic analysis:</strong> run a topic model on the reviews (e.g., LDA) to separate the reviews into key topics.</p></li>
 </ul>
 </div>

@@ -6,17 +6,18 @@ categories: ["R"]
 tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling", "linear regression", "R"]
 ---
 ![](images/app_store_reviews.PNG)
-I currently work in economic consulting, but my first paid job was drawing comics for Tapas Media, a webtoon platform. I used to think that these two jobs were worlds apart. But even though one deals with million-dollar litigations and the other deals with funny drawings and fart jokes, they're really about the same thing: telling stories. So in a weird way, my first job at Tapas started my journey as a storyteller. Needless to say, the company still holds a place near and dear to my heart.
 
-I thought it'd be fitting for my first portfolio project to pay homage to my first job, so I'll be using Apple Store reviews to tell a story about the [Tapas app](https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126).  The goal of this project is to answer the following questions:
+[See GitHub page for underlying code.](https://github.com/tomatatoro/personal-webpage/blob/main/content/post/text-mining-app-store-reviews/index.Rmd)
+
+I currently work in economic consulting, but my first paid job was drawing comics for Tapas Media, a webtoon platform. I used to think that these two jobs were worlds apart. But even though one deals with million-dollar lawsuits and the other deals with funny drawings and fart jokes, they're really about the same thing: telling stories. So in a weird way, my first job at Tapas started my journey as a storyteller. Needless to say, the company still holds a place near and dear to my heart.
+
+I thought it'd be fitting for my first portfolio project to pay homage to my first job, so I'll be using Apple Store reviews to tell a story about the [Tapas app](https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126).  The goal of this project is to see **what the user experience has been like with the Tapas app.** Specifically, I answer the following questions:
 
 * **How have ratings changed for the Tapas app over the past few months?**
 
 * **What's the #1 problem that users experience with the Tapas app?**
 
 * **Has Tapas dealt with the problem, and if so, did it work?**
-
-By the end of this post, we'll see that as of XX, ratings have improved compared to 
 
 ## Setup and Loading Data
 
@@ -67,16 +68,15 @@ reviews <- appler::get_apple_reviews(578836126, country = 'us', all_results = TR
 reviews <- readRDS('app_reviews.rds')
 ```
 
-Afted downloading the data, I use dim() and head() to take a peek at the dataset.
+After downloading the data, we can take a peek at the dataset.
 ```{r, message = FALSE}
-dim(reviews)
-head(reviews, 3)
+glimpse(reviews)
 ```
 So I have a dataset with 500 rows and 7 variables, where each row represents one review. Each row contains data on the review rating, when the review was written, the app version at the time, and the review itself.
 
 ## How have ratings changed for the Tapas app over the last few months?
 
-One of the first things I like to do is look at the distribution of data over time. This helps me identify gaps in the data, though this is more likely to be an issue for particularly large datasets from clients. 
+To start our exploratory analysis, I look at the distribution of reviews over time. 
 ```{r, echo = FALSE, message = FALSE}
 reviews <- reviews %>% 
   mutate(review_time = as.Date(review_time), 
@@ -96,7 +96,7 @@ my_palette <- c(lightblue, blue)
 
 ggplot(monthly_count, aes(x = month, y = n, fill = month_flag)) + 
   geom_bar(stat = 'identity') + 
-  labs(title = "More than half the reviews (288 out of 500) are from the first three months.",
+  labs(title = "58% ofreviews (288 out of 500) are from February - April.",
        subtitle = "Monthly Count of Reviews",
        x = 'Month', 
        y = 'Count of Reviews') +
@@ -121,11 +121,11 @@ avg_rating <- reviews %>%
   group_by(month, month_flag) %>% 
   summarize(avg_rating = mean(rating))
 
-my_palette <- c(blue, red)
+my_palette <- c(lightblue, blue)
 
 ggplot(avg_rating, aes(x = month, y = avg_rating, fill = month_flag))+
   geom_bar(stat = 'identity') +
-  labs(title = 'Average ratings grew through July and fell in recent months.',
+  labs(title = 'Average ratings grew through July and falters around August through October.',
        subtitle = 'Monthly Average Rating',
        x = 'Month', 
        y = 'Average Rating') + 
@@ -139,7 +139,7 @@ ggplot(avg_rating, aes(x = month, y = avg_rating, fill = month_flag))+
   geom_text(aes(label = formatC(avg_rating, format = 'f', digits = 2)), vjust = -0.8)
 ```
 
-Seems like the Tapas app has generally improved over time. The average rating was steadily growing up until July 2021. But after that point, ratings took a dip, and by September, the average rating was essentially back where it started. The App Store provides data on app versions, so we can also look at ratings across different app versions. 
+Seems like the Tapas app has generally improved over time. The average rating was growing steadily up until July 2021. But from August on, ratings took a dip, and by September, the average rating was essentially back where it started around the beginning of 2021. The App Store provides data on app versions, so we can also look at ratings across different app versions. 
 
 ```{r, echo = FALSE}
 reviews <- reviews %>% mutate(app_version_clean = stringr::str_extract(as.character(app_version), '5\\.[0-9]{1,2}'))
@@ -182,7 +182,7 @@ ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) +
              size = 1.5)
 ```
 
-When we plot average ratings by app version, we can see that version 5.10 had the lowest rating since version 5.5. 
+When we plot average ratings by app version, we can see a dip in ratings around version 5.10. 
 ```{r, echo = FALSE}
 avg_rating_by_ver <- reviews %>% 
   group_by(app_version_clean) %>%
@@ -309,7 +309,7 @@ For this step, I'll define "negative" reviews as those with (1) a rating lower t
 negative_reviews <- reviews %>% filter(rating < 3 | sentiment_direction == 'negative')
 ```
 
-I used r's "udpipe" package to run a RAKE algorithm on these negative reviews. The udpipe package lets us identify words that commonly occur with each other, and it identifies the part-of-speech for each word (i.e., nouns, adjectives, or verbs). 
+I used R's "udpipe" package to run a RAKE algorithm on these negative reviews. The udpipe package lets us identify words that commonly occur with each other, and it identifies the part-of-speech for each word (i.e., nouns, adjectives, or verbs). 
 ```{r, echo = FALSE, message = FALSE}
 udmodel <- udpipe::udpipe_download_model(language = 'english')
 udmodel_english <- udpipe::udpipe_load_model(udmodel$file_model)
@@ -329,9 +329,9 @@ ggraph(wordnetwork, layout = "fr") +
   theme(legend.position = "none") +
   labs(title = "Most common co-occurrences among negative reviews.", subtitle = "Nouns, Adjectives, and Verbs")
 ```
-From this word network, we see that the most common phrase is "read comic", which makes sense considering that Tapas is an app for reading comcis. We can also see some other interesting associations. The cluster with words like "freeze", "crash", "open", "load", or "time" indicates performance issues with the app crashing, or even issues with the time it takes to load. Another common association is "spend money", which may reflect complaints about Tapas' pay-wall for premium content. These insights are consistent with the example reviews we looked at before. 
+From this word network, we see that the most common phrase is "read comic", which makes sense considering that Tapas is an app for reading comcis. There also seem to be positive associations: "love story" and "great comic" indicate that people enjoy the content on Tapas.
 
-There also seem to be positive associations: "love story" and "great comic" indicate that people enjoy the content on Tapas.
+But most interestingly, the cluster with words like "freeze", "crash", "open", "load", or "time" indicates performance issues with the app crashing, or even issues with the time it takes to load. Another common association is "spend money", which may reflect complaints about Tapas' pay-wall for premium content. These insights are consistent with the example reviews we looked at before. 
 
 We can also plot common key phrases in a bar plot.
 ```{r}
@@ -350,7 +350,7 @@ my_palette <- c(lightblue, blue)
 
 ggplot(stats_chart, aes(x = keyword, y = rake, fill = perf_issue)) + 
   geom_col() + 
-  labs(title = 'Common keywords in negative reviews.',
+  labs(title = 'Phrases like "keep freeze" or "long time" indicate performance issues.',
        subtitle = 'Common keywords in negative reviews.',
        x = 'RAKE', 
        y = 'Keyword') + 
@@ -380,7 +380,7 @@ crash_month <- reviews %>%
 
 ggplot(crash_month, aes(x = month, y = percentage)) +  
   geom_bar(stat = 'identity', fill = red) +
-  labs(title = 'Rate of performance issues has fallen from 87% to 48%.',
+  labs(title = 'Performance issues have become less prevalent over time.',
        subtitle = 'Percent of Reviews that Mention "Crash", "Freeze", "Bug", etc. by Month',
        x = 'Month', 
        y = 'Percent of Reviews') +
@@ -449,28 +449,27 @@ ggplot(regression_data, aes(x = percentage, y = avg_rating)) +
   geom_text_repel(aes(label = app_version_clean), vjust = -0.8) +
   geom_text(x = 0.25, y = 1, label = lm_eqn(df), parse = TRUE)
 ```
-The regression shows that across all app versions, performance issues explain about 48 percent of the variance in ratings. It appears that the regression fits better for earlier app versions, but is not a great fit for versions 5.9, 5.10 or 5.12 (removing app versions 5.9, 5.10, and 5.12 bumps the R-squared up to 92 percent). This suggests that although performance explains most of the change in ratings for earlier app versions, other issues besides performance drove the drop in ratings for versions 5.10 and 5.12.  
+The regression shows that across all app versions, performance issues explain about 48 percent of the variance in ratings. **It appears that the regression fits better for earlier app versions, but is not a great fit for versions 5.9, 5.10 or 5.12** (removing app versions 5.9, 5.10, and 5.12 bumps the R-squared up to 92 percent). This suggests that although performance explains most of the change in ratings for earlier app versions, **there are other issues besides performance drove the drop in ratings for versions 5.10 and 5.12.**
 
 ```{r, include = FALSE}
 myModel2 <- lm(avg_rating ~ percentage, data = regression_data %>% filter(!(app_version_clean %in% c('5.9', '5.10', '5.12'))))
 summary(myModel2)
 ```
 
-## Conclusion and Next Steps
+## Next Steps
 
-By looking at the Apple Store reviews for the Tapas app, we uncovered the following story:
+To summarize key takeaways:
 
-* **Ratings grew** from an average of 2.59 (ver 5.5) to 3.46 (ver 5.9), but fell with ver. 5.10 and 5.12.
+* Despite strong growth in ratings from 2.59 (ver 5.5) to 3.46 (ver 5.9), **ratings are stagnating with the latest versions of the Tapas app.**
 
-* The growth in ratings were largely driven by **improved app performance.**
+* With the exception of versions 5.9, 5.10 and 5.12, **92% of the growth in ratings was driven by improvements to app performance.**
 
-* **Other issues besides app performance** are driving the fall in ratings for the more recent updates (ver. 5.10 and 5.12.)
+* However, in the latest versions of the app, it appears that **other issues besides app performance are driving the fall in ratings.**
 
-Although the data paints a happy trajectory for Tapas, we've ended on a bit of a cliffhanger! Of course, this post only scratches the surface of what else we can do with review data. Some potential next steps could include:
+So it looks like the Tapas developers have been hard at work to fix performance issues with its app, and in fact they've made considerable progress in early 2021 (from version 5.5 to version 5.9). Although the data paints an impressive trajectory, we've ended on a bit of a cliffhanger! Users aren't complaining about performance issues as much with the latest versions of the app, but app ratings have been stagnating. So the big question is why? Of course, this post only scratches the surface of what else we can do with review data. Some potential **next steps** could include:
 
-* Running a topic model on the reviews (e.g., LDA) to separate the reviews into key topics.
+* **Dive deeper on ver. 5.12**: limit the data to version 5.12 to identify the other problems that explain the drop in ratings.
 
-* Dive deeper into keywords for versions 5.10 and 5.12 to attempt to identify other problems that explain the drop in ratings.
+* **Collect more data:** use a web scraper (e.g., beautifulsoup in Python or rvest in R) to collect more reviews than the 500 max allowed by the Apple API.
 
-* Use a web scraper (e.g., beautifulsoup in Python or rvest in R) to collect more reviews than the 500 max allowed by the Apple API.
-
+* **Topic analysis:** run a topic model on the reviews (e.g., LDA) to separate the reviews into key topics.
