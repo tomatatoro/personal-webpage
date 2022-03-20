@@ -7,11 +7,9 @@ tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling", "lin
 ---
 ![](images/app_store_reviews.PNG)
 
-[See GitHub page for underlying code.](https://github.com/tomatatoro/personal-webpage/blob/main/content/post/text-mining-app-store-reviews/index.Rmd)
+[Click here for code on GitHub.](https://github.com/tomatatoro/personal-webpage/blob/main/content/post/text-mining-app-store-reviews/index.Rmd)
 
-I currently work in economic consulting, but my first paid job was drawing comics for Tapas Media, a webtoon platform. I used to think that these two jobs were worlds apart. But even though one deals with million-dollar lawsuits and the other deals with funny drawings and fart jokes, they're really about the same thing: telling stories. So in a weird way, my first job at Tapas started my journey as a storyteller. Needless to say, the company still holds a place near and dear to my heart.
-
-I thought it'd be fitting for my first portfolio project to pay homage to my first job, so I'll be using Apple Store reviews to tell a story about the [Tapas app](https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126).  The goal of this project is to see **what the user experience has been like with the Tapas app.** Specifically, I answer the following questions:
+The goal of this project is to see **what the user experience has been like with the [Tapas app](https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126),** one of my favorite webtoon apps. Specifically, I answer the following questions:
 
 * **How have ratings changed for the Tapas app over the past few months?**
 
@@ -23,28 +21,42 @@ I thought it'd be fitting for my first portfolio project to pay homage to my fir
 
 ```{r, include = FALSE}
 # Package names
-library(appler)
-library(dplyr)
-library(lubridate)
-library(ggplot2)
-library(stringr)
-library(tidyr)
-library(tm)
-library(textclean)
-library(textstem)
-library(syuzhet)
-library(knitr)
-library(udpipe)
-library(tidytext)
-library(igraph)
-library(ggraph)
-library(ggplot2)
-library(gridExtra)
-library(wesanderson)
-library(colorspace)
-library(wordcloud)
-library(ggrepel)
+packages <- c('appler', 'dplyr', 'lubridate', 'ggplot2', 'stringr', 'tidyr', 'tm', 'textclean', 'textstem', 'syuzhet', 'udpipe',
+              'tidytext', 'igraph', 'ggraph', 'gridExtra', 'wesanderson', 'colorspace', 'ggrepel')
 
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+# Package names
+# library(appler)
+# library(dplyr)
+# library(lubridate)
+# library(ggplot2)
+# library(stringr)
+# library(tidyr)
+# library(tm)
+# library(textclean)
+# library(textstem)
+# library(syuzhet)
+# library(knitr)
+# library(udpipe)
+# library(tidytext)
+# library(igraph)
+# library(ggraph)
+# library(ggplot2)
+# library(gridExtra)
+# library(wesanderson)
+# library(colorspace)
+# library(wordcloud)
+# library(ggrepel)
+
+#Set common colors to use throughout the post.
 blue <- wesanderson::wes_palettes$Zissou1[1]
 red <- wesanderson::wes_palettes$Royal1[2]
 lightred <- lighten(red, amount = 0.5, method = 'relative', space = 'combined')
@@ -55,48 +67,51 @@ lightblue <- lighten(blue, amount = 0.5, method = 'relative', space = 'combined'
 
 To start, I use the **appler** package to download the latest user reviews for the Tapas app. I downloaded this data as of October 24, 2021.
 
-(_disclaimer: the App Store API only allows users to download the latest 500 reviews. But even if you have thousands of reviews, you can still apply the same analyses!_)
+(_disclaimer: the App Store API only allows users to download the latest 500 reviews, which is a limitation of this case study._)
 
 ```{r, eval = FALSE}
 # App store ID can be found in the app store URL: https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126
-reviews <- appler::get_apple_reviews(578836126, country = 'us', all_results = TRUE)
+# reviews <- appler::get_apple_reviews(578836126, country = 'us', all_results = TRUE)
 ```
 
 ```{r, include = FALSE}
-# To ensure replicability, I saved the App Store reviews I downloaded.
+# To ensure replicability, I saved the App Store reviews I downloaded on October 24, 2021.
 # saveRDS(reviews_raw, file = 'app_reviews.rds')
 reviews <- readRDS('app_reviews.rds')
 ```
 
 After downloading the data, we can take a peek at the dataset.
-```{r, message = FALSE}
+```{r, echo = FALSE, message = FALSE}
 glimpse(reviews)
 ```
-So I have a dataset with 500 rows and 7 variables, where each row represents one review. Each row contains data on the review rating, when the review was written, the app version at the time, and the review itself.
+Our dataset has 500 rows and 7 variables, where each row represents one review. Each row contains data on the review rating, when the review was written, the app version at the time, and the review itself.
 
 ## How have ratings changed for the Tapas app over the last few months?
 
 To start our exploratory analysis, I look at the distribution of reviews over time. 
 ```{r, echo = FALSE, message = FALSE}
+# Clean dates and add a flag for which months to highlight on the chart.
 reviews <- reviews %>% 
   mutate(review_time = as.Date(review_time), 
          month = lubridate::floor_date(review_time, 'month'),
          month_flag = month < '2021-05-01')
 
+# Get count of reviews by month.
 monthly_count <- reviews %>% group_by(month, month_flag) %>% summarize(n = n())
 
-# 288 out of 500 reviews are from before May 2021
+# Calculate the observation that 288 out of 500 reviews are from before May 2021.
 proportion <- monthly_count %>% 
   group_by(month_flag) %>% 
   summarize(total_n = sum(n)) %>% 
   filter(month_flag == TRUE) %>% 
   select(total_n)
 
+# Plot count of reviews by month.
 my_palette <- c(lightblue, blue)
 
 ggplot(monthly_count, aes(x = month, y = n, fill = month_flag)) + 
   geom_bar(stat = 'identity') + 
-  labs(title = "58% ofreviews (288 out of 500) are from February - April.",
+  labs(title = "58% of reviews (288 out of 500) are from Feb - Apr.",
        subtitle = "Monthly Count of Reviews",
        x = 'Month', 
        y = 'Count of Reviews') +
@@ -110,9 +125,10 @@ ggplot(monthly_count, aes(x = month, y = n, fill = month_flag)) +
   geom_text(aes(label = n), vjust = -0.5)
 ```
 
-Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people left reviews for Tapas in recent months. The next thing I'd like to look at is the average rating over time.
+Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people left reviews for Tapas in recent months. People tend to be more likely to leave reviews if they have strong negative feedback, so this could be an indication of improvements in the app. The next thing I'd like to look at is the average rating over time.
 
 ```{r, echo = FALSE, message = FALSE}
+# Calculate average rating by month and add a flag for which months to highlight.
 avg_rating <- reviews %>% 
   mutate(month_flag = case_when(
     month %in% as.Date(c('2021-08-01', '2021-09-01', '2021-10-01')) ~ TRUE,
@@ -121,12 +137,13 @@ avg_rating <- reviews %>%
   group_by(month, month_flag) %>% 
   summarize(avg_rating = mean(rating))
 
+# Plot average rating by month.
 my_palette <- c(lightblue, blue)
 
 ggplot(avg_rating, aes(x = month, y = avg_rating, fill = month_flag))+
   geom_bar(stat = 'identity') +
-  labs(title = 'Average ratings grew through July and falters around August through October.',
-       subtitle = 'Monthly Average Rating',
+  labs(title = 'Average ratings grew through Jul and fell from Aug - Oct.',
+       subtitle = 'Average Rating by Month',
        x = 'Month', 
        y = 'Average Rating') + 
   theme_light() +
@@ -139,11 +156,13 @@ ggplot(avg_rating, aes(x = month, y = avg_rating, fill = month_flag))+
   geom_text(aes(label = formatC(avg_rating, format = 'f', digits = 2)), vjust = -0.8)
 ```
 
-Seems like the Tapas app has generally improved over time. The average rating was growing steadily up until July 2021. But from August on, ratings took a dip, and by September, the average rating was essentially back where it started around the beginning of 2021. The App Store provides data on app versions, so we can also look at ratings across different app versions. 
+Indeed, the Tapas app has generally improved over time. The average rating was growing steadily up until July 2021. But from August on, ratings took a dip, and by September, the average rating was essentially back where it started around the beginning of 2021. The App Store provides data on app versions, so we can also look at ratings across different app versions. 
 
 ```{r, echo = FALSE}
+# Clean app version.
 reviews <- reviews %>% mutate(app_version_clean = stringr::str_extract(as.character(app_version), '5\\.[0-9]{1,2}'))
 
+# Order app versions in chronological order.
 app_ver_order <- reviews %>% 
   select(app_version_clean) %>%
   unique() %>% 
@@ -154,6 +173,7 @@ reviews <- reviews %>% mutate(app_version_clean = factor(app_version_clean, leve
 ```
 
 ```{r, include = FALSE, message = FALSE}
+# This chart isn't used in the data story, but shows the timeline of when each app version was rolled out.
 version_count <- reviews %>% 
   group_by(app_version_clean, month) %>% 
   summarize(n_reviews = n()) %>%
@@ -184,11 +204,13 @@ ggplot(version_prop, aes(x = month, y = percentage, fill = app_version_clean)) +
 
 When we plot average ratings by app version, we can see a dip in ratings around version 5.10. 
 ```{r, echo = FALSE}
+# Calculate average rating by app version.
 avg_rating_by_ver <- reviews %>% 
   group_by(app_version_clean) %>%
   summarize(avg_rating = mean(rating)) %>%
   arrange(app_version_clean)
 
+# Plot average rating by app version
 ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating)) + 
   geom_bar(stat = 'identity', fill = blue) +
   labs(title = 'Average ratings peaked with ver. 5.9 and fell with ver. 5.10.',
@@ -204,7 +226,11 @@ ggplot(avg_rating_by_ver, aes(x = app_version_clean, y = avg_rating)) +
   geom_text(aes(label = formatC(avg_rating, format = 'f', digits = 2)), vjust = -0.8)
 ```
 
-So we discovered that *Tapas ratings improved through the release of version 5.9 in July*, but *ratings have fallen in recent months for versions 5.10-5.12*.
+So to summarize our findings...
+
+Q: How have ratings changed for the Tapas app over the past few months?
+
+A: Through exploratory analysis, we discovered that **ratings improved through the release of version 5.9 in July, but fell in recent months for versions 5.10-5.12**.
 
 ## What's the #1 problem that users have with the Tapas app?
 
@@ -212,15 +238,15 @@ Now that we see the trend in ratings, my next question would be to look at the n
 
 ### Identifying Negative Reviews
 
-We could simply use reviews with low star ratings to identify negative reviews, but there are also four- or five-star reviews that sometimes include hidden criticisms of the app, or as I like to call them: "I love it, but..." reviews. For example, this 5-star review talks about an issue with the app crashing. If we filtered on rating, we wouldn't capture a review like this. 
+We could simply use reviews with low star ratings to identify negative reviews, but there are also four- or five-star reviews that sometimes include hidden criticisms of the app, or as I call them: "I love it, but..." reviews. For example, this 5-star review talks about an issue with the app crashing. If we did a simple filter on rating, we wouldn't capture a review like this, where the user rated the app 5 stars but complains about the app crashing. 
 
-```{r}
+```{r, echo = FALSE}
 reviews %>% filter(id == 7882943052) %>% select(rating, title, review)
 ```
 
-So to help identify all negative reviews, I employ sentiment analysis. [Sentiment analysis](https://monkeylearn.com/blog/text-mining-sentiment-analysis/) is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. With sentiment analysis, you can get a deeper understanding of public opinion about your company/product/service.
+To help identify all negative reviews, I employ sentiment analysis. [Sentiment analysis](https://monkeylearn.com/blog/text-mining-sentiment-analysis/) is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. With sentiment analysis, you can get a deeper understanding of public opinion about your company/product/service.
 
-Before running my sentiment analysis, I do some cleaning on the reviews: stripping punctuation, removing uninformative stop words (e.g., "the", "a", "and"), as well as other cleaning steps. Ultimately, my "cleaned" reviews look like this:
+Before running my sentiment analysis, I cleaning the reviews: strip punctuation, removing uninformative stop words (e.g., "the", "a", "and"), as well as other cleaning steps. Ultimately, my "cleaned" reviews look like this:
 ```{r, echo = FALSE, message = FALSE}
 cleanText <- function(x){
   temp <- gsub('’','\'',x)
@@ -255,8 +281,10 @@ example_sentiment <- example_words %>% mutate(sentiment_score = syuzhet::get_sen
 After I calculate a sentiment score for every review, I can identify "negative", "positive" or "neutral" reviews (i.e., reviews with a negative, positive, or zero sentiment score respectively). 
 
 ```{r, echo = FALSE, message = FALSE}
+# Establish order of sentiments.
 sentiment_order <- c('negative', 'neutral', 'positive')
 
+# Calculate sentiment for each review using syuzhet package.
 reviews <- reviews %>% 
   mutate(sentiment_score = syuzhet::get_sentiment(review_cleaned, method = 'syuzhet'),
          sentiment_direction = case_when(
@@ -267,13 +295,15 @@ reviews <- reviews %>%
          ) %>%
   mutate(sentiment_direction = factor(sentiment_direction, levels = sentiment_order))
 ```
-As a sanity check, I plot sentiment by app version. The resulting chart is consistent with our earlier observation that users didn't seem to like version 5.10. 
 
-```{r, message = FALSE}
+As a sanity check, I plot sentiment by app version. The resulting chart is consistent with our earlier observation that users didn't seem to like version 5.10.
+```{r, echo = FALSE, message = FALSE}
+# Get counts of each sentiment by app version.
 sent_ver <- reviews %>% 
   group_by(app_version_clean, sentiment_direction) %>%
   summarize(percentage = n())
 
+# Plot sentiment by app version.
 my_palette <- c(red, yellow, green)
 
 ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
@@ -291,10 +321,10 @@ ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = perc
 
 So what are these negative reviews talking about? If we look at a few examples, we can see some pain points that users are experiencing. 
 ```{r, include = FALSE}
-#negative examples
+# Get examples of negative reviews.
 knitr::kable(reviews %>% filter(sentiment_direction == 'negative') %>% head() %>% select(review, review_cleaned, sentiment_score))
 
-#positive examples
+# Get examples of positive reviews.
 knitr::kable(reviews %>% filter(sentiment_direction == 'positive') %>% head() %>% select(review, review_cleaned, sentiment_score))
 ```
 ![](images/negative_reviews.png)
@@ -306,11 +336,13 @@ There are many different algorithms/approaches for identifying key words/topics 
 
 For this step, I'll define "negative" reviews as those with (1) a rating lower than 3 stars, or (2) a rating with a negative sentiment score.
 ```{r, echo = FALSE}
+# Filter on reviews with less than 3 stars OR with negative sentiment.
 negative_reviews <- reviews %>% filter(rating < 3 | sentiment_direction == 'negative')
 ```
 
 I used R's "udpipe" package to run a RAKE algorithm on these negative reviews. The udpipe package lets us identify words that commonly occur with each other, and it identifies the part-of-speech for each word (i.e., nouns, adjectives, or verbs). 
 ```{r, echo = FALSE, message = FALSE}
+# Download RAKE algorithm.
 udmodel <- udpipe::udpipe_download_model(language = 'english')
 udmodel_english <- udpipe::udpipe_load_model(udmodel$file_model)
 review_vector <- as.character(negative_reviews %>% select(review_cleaned))
@@ -335,6 +367,7 @@ But most interestingly, the cluster with words like "freeze", "crash", "open", "
 
 We can also plot common key phrases in a bar plot.
 ```{r}
+# Filter on most common co-occurences among negative reviews.
 stats <- keywords_rake(x = complaint_data, 
                        term = 'lemma', 
                        group = 'doc_id', 
@@ -346,6 +379,7 @@ stats_chart <- stats %>%
   mutate(keyword = factor(keyword, levels = keyword),
          perf_issue = grepl('freeze|crash|fix|bug|time|long', keyword))
 
+# Plot most common key phrases among negative reviews. 
 my_palette <- c(lightblue, blue)
 
 ggplot(stats_chart, aes(x = keyword, y = rake, fill = perf_issue)) + 
@@ -364,11 +398,19 @@ ggplot(stats_chart, aes(x = keyword, y = rake, fill = perf_issue)) +
 
 The top phrases relate to the function of the app, but after that, most of the phrases seem related to performance issues. Namely, we can see that words/phrases like "fix bug", "keep freeze", and "long time" appear frequently in negative reviews. So it looks like *performance issues are the most common complaint in negative reviews.*
 
+To summarize our takeaways...
+
+Q: What's the #1 problem that users have with the Tapas app?
+
+A: **The biggest problems that users mention most in their reviews are performance issues (crashing, freezing, slow app, etc).**
+
 ## How has Tapas dealt with the problem?
-Now that we know that we can search for keywords like "freeze", "fix", "load", etc. to identify reviews related to performance issues, we can look at trends in these sort of reviews. Let's define the metric "Performance Issue Rate" as the percent of reviews with these "performance-issue" keywords.
+Now that we know that we can search for keywords like "freeze", "fix", "load", etc. to identify reviews related to performance issues, we can look at trends in these sort of reviews.
 ```{r, echo = FALSE, message = FALSE}
+# Create flag that identifies reviews with common negative phrases related to crashing.
 reviews <- reviews %>% mutate(crash_flag = grepl('crash|freez|bug|fix|load', review_cleaned))
 
+# Get count of reviews with negative phrases related to crashing.
 monthly_reviews <- reviews %>% group_by(month) %>% summarize(total_reviews = n())
 
 crash_month <- reviews %>% 
@@ -378,6 +420,7 @@ crash_month <- reviews %>%
   left_join(monthly_reviews) %>%
   mutate(percentage = n_reviews/total_reviews)
 
+# Plot percent of reviews with phrases related to performance issues by month.
 ggplot(crash_month, aes(x = month, y = percentage)) +  
   geom_bar(stat = 'identity', fill = red) +
   labs(title = 'Performance issues have become less prevalent over time.',
@@ -395,6 +438,7 @@ ggplot(crash_month, aes(x = month, y = percentage)) +
 
 
 ```{r, echo = FALSE, message = FALSE}
+# Get percent of reviews with phrases related to performance issues by app version.
 version_reviews <- reviews %>% group_by(app_version_clean) %>% summarize(total_reviews = n())
 
 crash_ver <- reviews %>% 
@@ -404,6 +448,7 @@ crash_ver <- reviews %>%
   left_join(version_reviews) %>%
   mutate(percentage = n_reviews/total_reviews)
 
+# Plot percent of reviews with phrases related to performance issues by app version.
 ggplot(crash_ver, aes(x = app_version_clean, y = percentage)) +  
   geom_bar(stat = 'identity', fill = red) +
   labs(title = 'Performance has improved with each new app version.',
@@ -422,9 +467,11 @@ Great! It looks like Tapas has made improvements to their app so that fewer peop
 
 A follow-up question would be: how much has fixing performance issues helped with the ratings? Are there other issues that we're overlooking? To answer these questions, we can see how much Performance Issue Rate affect ratings by running a quick OLS regression. 
 ```{r, echo = FALSE, message = FALSE}
+# Set up data to run regression on rating vs percentage of reviews with key phrases related to performance issues.
 regression_data <- crash_ver %>% left_join(avg_rating_by_ver)
 myModel <- lm(avg_rating ~ percentage, data = regression_data)
 
+# Plot regressoin.
 lm_eqn <- function(df){
     eq <- substitute(italic(y) == a - b %.% italic(x)*","~~italic(r)^2~"="~r2, 
          list(a = format(unname(coef(myModel)[1]), digits = 2),
@@ -437,8 +484,8 @@ ggplot(regression_data, aes(x = percentage, y = avg_rating)) +
   geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
   geom_point() +
   labs(title = 'Performance fixes explain 48% of the improvements in rating.',
-       subtitle = 'Performance Issue Rate vs Average Rating from Ver. 5.5-5.12',
-       x = 'Performance Issue Rate',
+       subtitle = 'Pct. of Reviews that Mention Performance Issues vs Avg.  Rating from Ver. 5.5-5.12',
+       x = 'Percent of Reviews that Mention Performance Issues',
        y = 'Average Rating') +
   theme_light() +
   theme(panel.grid.major = element_blank(), 
@@ -449,12 +496,19 @@ ggplot(regression_data, aes(x = percentage, y = avg_rating)) +
   geom_text_repel(aes(label = app_version_clean), vjust = -0.8) +
   geom_text(x = 0.25, y = 1, label = lm_eqn(df), parse = TRUE)
 ```
-The regression shows that across all app versions, performance issues explain about 48 percent of the variance in ratings. **It appears that the regression fits better for earlier app versions, but is not a great fit for versions 5.9, 5.10 or 5.12** (removing app versions 5.9, 5.10, and 5.12 bumps the R-squared up to 92 percent). This suggests that although performance explains most of the change in ratings for earlier app versions, **there are other issues besides performance drove the drop in ratings for versions 5.10 and 5.12.**
+The regression shows that across all app versions, performance issues explain about 48 percent of the variance in ratings. **It appears that the regression fits better for earlier app versions, but is not a great fit for versions 5.9, 5.10 or 5.12. Removing app versions 5.9, 5.10, and 5.12 bumps the R-squared up to 92 percent.** This suggests that although performance explains most of the change in ratings for earlier app versions, **there are other issues besides performance drove the drop in ratings for versions 5.10 and 5.12.**
 
 ```{r, include = FALSE}
+# Test regression excluding bad fits: 5.9, 5.10, 5.12.
 myModel2 <- lm(avg_rating ~ percentage, data = regression_data %>% filter(!(app_version_clean %in% c('5.9', '5.10', '5.12'))))
 summary(myModel2)
 ```
+
+To summarize takeaways...
+
+Q: How has Tapas dealt with the problem?
+
+A: **Tapas appears to have resolved many performance issues since version 5.5, driving 92% of the growth in ratings** with the exception of versions 5.9, 5.10, and 5.12. However, **the recent stagnation in ratings appears to be due to problems besides  performance issues.**
 
 ## Next Steps
 
@@ -466,7 +520,9 @@ To summarize key takeaways:
 
 * However, in the latest versions of the app, it appears that **other issues besides app performance are driving the fall in ratings.**
 
-So it looks like the Tapas developers have been hard at work to fix performance issues with its app, and in fact they've made considerable progress in early 2021 (from version 5.5 to version 5.9). Although the data paints an impressive trajectory, we've ended on a bit of a cliffhanger! Users aren't complaining about performance issues as much with the latest versions of the app, but app ratings have been stagnating. So the big question is why? Of course, this post only scratches the surface of what else we can do with review data. Some potential **next steps** could include:
+So it looks like the Tapas developers have been hard at work to fix performance issues with its app, and in fact they've made considerable progress in early 2021 (from version 5.5 to version 5.9). Although the data paints an impressive trajectory, we've ended on a cliffhanger! Users aren't complaining about performance issues as much with the latest versions of the app, but app ratings have been stagnating. So the big question is **why?** 
+
+Of course, this post only scratches the surface of what else we can do with review data. Some potential **next steps** could include:
 
 * **Dive deeper on ver. 5.12**: limit the data to version 5.12 to identify the other problems that explain the drop in ratings.
 

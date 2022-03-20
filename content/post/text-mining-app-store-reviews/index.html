@@ -9,9 +9,8 @@ tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling", "lin
 
 
 <p><img src="images/app_store_reviews.PNG" /></p>
-<p><a href="https://github.com/tomatatoro/personal-webpage/blob/main/content/post/text-mining-app-store-reviews/index.Rmd">See GitHub page for underlying code.</a></p>
-<p>I currently work in economic consulting, but my first paid job was drawing comics for Tapas Media, a webtoon platform. I used to think that these two jobs were worlds apart. But even though one deals with million-dollar lawsuits and the other deals with funny drawings and fart jokes, they’re really about the same thing: telling stories. So in a weird way, my first job at Tapas started my journey as a storyteller. Needless to say, the company still holds a place near and dear to my heart.</p>
-<p>I thought it’d be fitting for my first portfolio project to pay homage to my first job, so I’ll be using Apple Store reviews to tell a story about the <a href="https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126">Tapas app</a>. The goal of this project is to see <strong>what the user experience has been like with the Tapas app.</strong> Specifically, I answer the following questions:</p>
+<p><a href="https://github.com/tomatatoro/personal-webpage/blob/main/content/post/text-mining-app-store-reviews/index.Rmd">Click here for code on GitHub.</a></p>
+<p>The goal of this project is to see <strong>what the user experience has been like with the <a href="https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126">Tapas app</a>,</strong> one of my favorite webtoon apps. Specifically, I answer the following questions:</p>
 <ul>
 <li><p><strong>How have ratings changed for the Tapas app over the past few months?</strong></p></li>
 <li><p><strong>What’s the #1 problem that users experience with the Tapas app?</strong></p></li>
@@ -20,11 +19,10 @@ tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling", "lin
 <div id="setup-and-loading-data" class="section level2">
 <h2>Setup and Loading Data</h2>
 <p>To start, I use the <strong>appler</strong> package to download the latest user reviews for the Tapas app. I downloaded this data as of October 24, 2021.</p>
-<p>(<em>disclaimer: the App Store API only allows users to download the latest 500 reviews. But even if you have thousands of reviews, you can still apply the same analyses!</em>)</p>
+<p>(<em>disclaimer: the App Store API only allows users to download the latest 500 reviews, which is a limitation of this case study.</em>)</p>
 <pre class="r"><code># App store ID can be found in the app store URL: https://apps.apple.com/us/app/tapas-comics-and-novels/id578836126
-reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_results = TRUE)</code></pre>
+# reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_results = TRUE)</code></pre>
 <p>After downloading the data, we can take a peek at the dataset.</p>
-<pre class="r"><code>glimpse(reviews)</code></pre>
 <pre><code>## Rows: 500
 ## Columns: 7
 ## $ id          &lt;dbl&gt; 7941139931, 7934834810, 7926951399, 7926310536, 7925628744~
@@ -34,56 +32,40 @@ reviews &lt;- appler::get_apple_reviews(578836126, country = &#39;us&#39;, all_r
 ## $ title       &lt;chr&gt; &quot;The new censorship.&quot;, &quot;It’s a good app but&quot;, &quot;Cost&quot;, &quot;Dis~
 ## $ rating      &lt;dbl&gt; 1, 4, 2, 1, 1, 2, 5, 5, 2, 5, 4, 2, 3, 2, 5, 5, 1, 2, 5, 5~
 ## $ review      &lt;chr&gt; &quot;I’ll be honest, this app is pretty good, and I love the s~</code></pre>
-<p>So I have a dataset with 500 rows and 7 variables, where each row represents one review. Each row contains data on the review rating, when the review was written, the app version at the time, and the review itself.</p>
+<p>Our dataset has 500 rows and 7 variables, where each row represents one review. Each row contains data on the review rating, when the review was written, the app version at the time, and the review itself.</p>
 </div>
 <div id="how-have-ratings-changed-for-the-tapas-app-over-the-last-few-months" class="section level2">
 <h2>How have ratings changed for the Tapas app over the last few months?</h2>
 <p>To start our exploratory analysis, I look at the distribution of reviews over time.
 <img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
-<p>Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people left reviews for Tapas in recent months. The next thing I’d like to look at is the average rating over time.</p>
+<p>Interestingly, the majority of reviews are from early 2021, and it seems like fewer and fewer people left reviews for Tapas in recent months. People tend to be more likely to leave reviews if they have strong negative feedback, so this could be an indication of improvements in the app. The next thing I’d like to look at is the average rating over time.</p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
-<p>Seems like the Tapas app has generally improved over time. The average rating was growing steadily up until July 2021. But from August on, ratings took a dip, and by September, the average rating was essentially back where it started around the beginning of 2021. The App Store provides data on app versions, so we can also look at ratings across different app versions.</p>
+<p>Indeed, the Tapas app has generally improved over time. The average rating was growing steadily up until July 2021. But from August on, ratings took a dip, and by September, the average rating was essentially back where it started around the beginning of 2021. The App Store provides data on app versions, so we can also look at ratings across different app versions.</p>
 <p>When we plot average ratings by app version, we can see a dip in ratings around version 5.10.
 <img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
-<p>So we discovered that <em>Tapas ratings improved through the release of version 5.9 in July</em>, but <em>ratings have fallen in recent months for versions 5.10-5.12</em>.</p>
+<p>So to summarize our findings…</p>
+<p>Q: How have ratings changed for the Tapas app over the past few months?</p>
+<p>A: Through exploratory analysis, we discovered that <strong>ratings improved through the release of version 5.9 in July, but fell in recent months for versions 5.10-5.12</strong>.</p>
 </div>
 <div id="whats-the-1-problem-that-users-have-with-the-tapas-app" class="section level2">
 <h2>What’s the #1 problem that users have with the Tapas app?</h2>
 <p>Now that we see the trend in ratings, my next question would be to look at the negative reviews and try to identify what’s the #1 problem users are dealing with.</p>
 <div id="identifying-negative-reviews" class="section level3">
 <h3>Identifying Negative Reviews</h3>
-<p>We could simply use reviews with low star ratings to identify negative reviews, but there are also four- or five-star reviews that sometimes include hidden criticisms of the app, or as I like to call them: “I love it, but…” reviews. For example, this 5-star review talks about an issue with the app crashing. If we filtered on rating, we wouldn’t capture a review like this.</p>
-<pre class="r"><code>reviews %&gt;% filter(id == 7882943052) %&gt;% select(rating, title, review)</code></pre>
+<p>We could simply use reviews with low star ratings to identify negative reviews, but there are also four- or five-star reviews that sometimes include hidden criticisms of the app, or as I call them: “I love it, but…” reviews. For example, this 5-star review talks about an issue with the app crashing. If we did a simple filter on rating, we wouldn’t capture a review like this, where the user rated the app 5 stars but complains about the app crashing.</p>
 <pre><code>##   rating                                title
 ## 1      5 App keeps Crashing when I go into it
 ##                                                                                                                                                                                                                           review
 ## 1 My only complain about the app is that it keeps crashing whenever I try to go in and I just reinstalled it and downloaded all my favorite books that I had on it .  And it keeps on crashing every time I go into the the app.</code></pre>
-<p>So to help identify all negative reviews, I employ sentiment analysis. <a href="https://monkeylearn.com/blog/text-mining-sentiment-analysis/">Sentiment analysis</a> is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. With sentiment analysis, you can get a deeper understanding of public opinion about your company/product/service.</p>
-<p>Before running my sentiment analysis, I do some cleaning on the reviews: stripping punctuation, removing uninformative stop words (e.g., “the”, “a”, “and”), as well as other cleaning steps. Ultimately, my “cleaned” reviews look like this:</p>
+<p>To help identify all negative reviews, I employ sentiment analysis. <a href="https://monkeylearn.com/blog/text-mining-sentiment-analysis/">Sentiment analysis</a> is exactly what it sounds like: taking a body of text and determining whether the underlying sentiment is positive, negative, or neutral. With sentiment analysis, you can get a deeper understanding of public opinion about your company/product/service.</p>
+<p>Before running my sentiment analysis, I cleaning the reviews: strip punctuation, removing uninformative stop words (e.g., “the”, “a”, “and”), as well as other cleaning steps. Ultimately, my “cleaned” reviews look like this:</p>
 <p><img src="images/text_cleaning.PNG" /></p>
 <p>After cleaning the text, I used the “syuzhet” package in R to calculate a sentiment “score” for each review. For example, words like “garbage” will get negative scores, while a word like “pleasant” gets a postive score. The total gets you to the overall score for the review.</p>
 <p><img src="images/sentiment_score.png" />
 (<em>These scores are pulled from “lexicons” assembled by literary researchers. I’m using Syuzhet, <a href="https://www.rdocumentation.org/packages/syuzhet/versions/1.0.6">the default lexicon in the syuzhet package that was developed in the Nebraska Literary Lab</a>.</em>)</p>
 <p>After I calculate a sentiment score for every review, I can identify “negative”, “positive” or “neutral” reviews (i.e., reviews with a negative, positive, or zero sentiment score respectively).</p>
-<p>As a sanity check, I plot sentiment by app version. The resulting chart is consistent with our earlier observation that users didn’t seem to like version 5.10.</p>
-<pre class="r"><code>sent_ver &lt;- reviews %&gt;% 
-  group_by(app_version_clean, sentiment_direction) %&gt;%
-  summarize(percentage = n())
-
-my_palette &lt;- c(red, yellow, green)
-
-ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = percentage)) +  
-  geom_bar(position = &#39;fill&#39;, stat = &#39;identity&#39;) +
-  labs(title = &#39;Sentiment improved through ver. 5.9 but soured with recent updates.&#39;,
-       subtitle = &#39;Sentiment by App Version&#39;,
-       x = &#39;App Version&#39;, 
-       y = &#39;Percent of Reviews&#39;) +
-  theme_light() +
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank()) +
-  scale_y_continuous(labels = scales::percent) + 
-  scale_fill_manual(name = &#39;Sentiment&#39;, values = my_palette)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
+<p>As a sanity check, I plot sentiment by app version. The resulting chart is consistent with our earlier observation that users didn’t seem to like version 5.10.
+<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
 <p>So what are these negative reviews talking about? If we look at a few examples, we can see some pain points that users are experiencing.</p>
 <p><img src="images/negative_reviews.png" /></p>
 <p>Crashes seem to be a common problem, while another user mentioned “ink”, which is Tapas’ in-app currency for purchasing premium content. How do we know what is the #1 problem? To help answer this, I use an algorithm to extract the most common keywords from these negative reviews.</p>
@@ -98,7 +80,8 @@ ggplot(sent_ver, aes(fill = sentiment_direction, x = app_version_clean, y = perc
 From this word network, we see that the most common phrase is “read comic”, which makes sense considering that Tapas is an app for reading comcis. There also seem to be positive associations: “love story” and “great comic” indicate that people enjoy the content on Tapas.</p>
 <p>But most interestingly, the cluster with words like “freeze”, “crash”, “open”, “load”, or “time” indicates performance issues with the app crashing, or even issues with the time it takes to load. Another common association is “spend money”, which may reflect complaints about Tapas’ pay-wall for premium content. These insights are consistent with the example reviews we looked at before.</p>
 <p>We can also plot common key phrases in a bar plot.</p>
-<pre class="r"><code>stats &lt;- keywords_rake(x = complaint_data, 
+<pre class="r"><code># Filter on most common co-occurences among negative reviews.
+stats &lt;- keywords_rake(x = complaint_data, 
                        term = &#39;lemma&#39;, 
                        group = &#39;doc_id&#39;, 
                        relevant = complaint_data$upos %in% c(&#39;NOUN&#39;, &#39;ADJ&#39;, &#39;VERB&#39;))
@@ -109,6 +92,7 @@ stats_chart &lt;- stats %&gt;%
   mutate(keyword = factor(keyword, levels = keyword),
          perf_issue = grepl(&#39;freeze|crash|fix|bug|time|long&#39;, keyword))
 
+# Plot most common key phrases among negative reviews. 
 my_palette &lt;- c(lightblue, blue)
 
 ggplot(stats_chart, aes(x = keyword, y = rake, fill = perf_issue)) + 
@@ -125,17 +109,23 @@ ggplot(stats_chart, aes(x = keyword, y = rake, fill = perf_issue)) +
   coord_flip()</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
 <p>The top phrases relate to the function of the app, but after that, most of the phrases seem related to performance issues. Namely, we can see that words/phrases like “fix bug”, “keep freeze”, and “long time” appear frequently in negative reviews. So it looks like <em>performance issues are the most common complaint in negative reviews.</em></p>
+<p>To summarize our takeaways…</p>
+<p>Q: What’s the #1 problem that users have with the Tapas app?</p>
+<p>A: <strong>The biggest problems that users mention most in their reviews are performance issues (crashing, freezing, slow app, etc).</strong></p>
 </div>
 </div>
 <div id="how-has-tapas-dealt-with-the-problem" class="section level2">
 <h2>How has Tapas dealt with the problem?</h2>
-<p>Now that we know that we can search for keywords like “freeze”, “fix”, “load”, etc. to identify reviews related to performance issues, we can look at trends in these sort of reviews. Let’s define the metric “Performance Issue Rate” as the percent of reviews with these “performance-issue” keywords.
+<p>Now that we know that we can search for keywords like “freeze”, “fix”, “load”, etc. to identify reviews related to performance issues, we can look at trends in these sort of reviews.
 <img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-20-1.png" width="672" /></p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-21-1.png" width="672" /></p>
 <p>Great! It looks like Tapas has made improvements to their app so that fewer people are complaining about performance-issues, and so their ratings improved.</p>
 <p>A follow-up question would be: how much has fixing performance issues helped with the ratings? Are there other issues that we’re overlooking? To answer these questions, we can see how much Performance Issue Rate affect ratings by running a quick OLS regression.
 <img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" width="672" />
-The regression shows that across all app versions, performance issues explain about 48 percent of the variance in ratings. <strong>It appears that the regression fits better for earlier app versions, but is not a great fit for versions 5.9, 5.10 or 5.12</strong> (removing app versions 5.9, 5.10, and 5.12 bumps the R-squared up to 92 percent). This suggests that although performance explains most of the change in ratings for earlier app versions, <strong>there are other issues besides performance drove the drop in ratings for versions 5.10 and 5.12.</strong></p>
+The regression shows that across all app versions, performance issues explain about 48 percent of the variance in ratings. <strong>It appears that the regression fits better for earlier app versions, but is not a great fit for versions 5.9, 5.10 or 5.12. Removing app versions 5.9, 5.10, and 5.12 bumps the R-squared up to 92 percent.</strong> This suggests that although performance explains most of the change in ratings for earlier app versions, <strong>there are other issues besides performance drove the drop in ratings for versions 5.10 and 5.12.</strong></p>
+<p>To summarize takeaways…</p>
+<p>Q: How has Tapas dealt with the problem?</p>
+<p>A: <strong>Tapas appears to have resolved many performance issues since version 5.5, driving 92% of the growth in ratings</strong> with the exception of versions 5.9, 5.10, and 5.12. However, <strong>the recent stagnation in ratings appears to be due to problems besides performance issues.</strong></p>
 </div>
 <div id="next-steps" class="section level2">
 <h2>Next Steps</h2>
@@ -145,7 +135,8 @@ The regression shows that across all app versions, performance issues explain ab
 <li><p>With the exception of versions 5.9, 5.10 and 5.12, <strong>92% of the growth in ratings was driven by improvements to app performance.</strong></p></li>
 <li><p>However, in the latest versions of the app, it appears that <strong>other issues besides app performance are driving the fall in ratings.</strong></p></li>
 </ul>
-<p>So it looks like the Tapas developers have been hard at work to fix performance issues with its app, and in fact they’ve made considerable progress in early 2021 (from version 5.5 to version 5.9). Although the data paints an impressive trajectory, we’ve ended on a bit of a cliffhanger! Users aren’t complaining about performance issues as much with the latest versions of the app, but app ratings have been stagnating. So the big question is why? Of course, this post only scratches the surface of what else we can do with review data. Some potential <strong>next steps</strong> could include:</p>
+<p>So it looks like the Tapas developers have been hard at work to fix performance issues with its app, and in fact they’ve made considerable progress in early 2021 (from version 5.5 to version 5.9). Although the data paints an impressive trajectory, we’ve ended on a cliffhanger! Users aren’t complaining about performance issues as much with the latest versions of the app, but app ratings have been stagnating. So the big question is <strong>why?</strong></p>
+<p>Of course, this post only scratches the surface of what else we can do with review data. Some potential <strong>next steps</strong> could include:</p>
 <ul>
 <li><p><strong>Dive deeper on ver. 5.12</strong>: limit the data to version 5.12 to identify the other problems that explain the drop in ratings.</p></li>
 <li><p><strong>Collect more data:</strong> use a web scraper (e.g., beautifulsoup in Python or rvest in R) to collect more reviews than the 500 max allowed by the Apple API.</p></li>
