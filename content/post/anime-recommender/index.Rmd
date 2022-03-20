@@ -5,7 +5,7 @@ date: "1/12/2022"
 output: html_document
 ---
 ![](images/recommender_screenshot.PNG)
-[Click here for R Shiny App.]()
+[Click here for R Shiny App.](https://tatolu818.shinyapps.io/animelist_recommender/)
 
 ## Next Steps
 
