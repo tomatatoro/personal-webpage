@@ -366,7 +366,7 @@ From this word network, we see that the most common phrase is "read comic", whic
 But most interestingly, the cluster with words like "freeze", "crash", "open", "load", or "time" indicates performance issues with the app crashing, or even issues with the time it takes to load. Another common association is "spend money", which may reflect complaints about Tapas' pay-wall for premium content. These insights are consistent with the example reviews we looked at before. 
 
 We can also plot common key phrases in a bar plot.
-```{r}
+```{r, echo = FALSE}
 # Filter on most common co-occurences among negative reviews.
 stats <- keywords_rake(x = complaint_data, 
                        term = 'lemma', 
