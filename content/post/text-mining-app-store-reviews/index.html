@@ -79,35 +79,8 @@ tags: ["EDA", "nlp", "text mining", "sentiment analysis", "topic modeling", "lin
 <img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-18-1.png" width="672" />
 From this word network, we see that the most common phrase is “read comic”, which makes sense considering that Tapas is an app for reading comcis. There also seem to be positive associations: “love story” and “great comic” indicate that people enjoy the content on Tapas.</p>
 <p>But most interestingly, the cluster with words like “freeze”, “crash”, “open”, “load”, or “time” indicates performance issues with the app crashing, or even issues with the time it takes to load. Another common association is “spend money”, which may reflect complaints about Tapas’ pay-wall for premium content. These insights are consistent with the example reviews we looked at before.</p>
-<p>We can also plot common key phrases in a bar plot.</p>
-<pre class="r"><code># Filter on most common co-occurences among negative reviews.
-stats &lt;- keywords_rake(x = complaint_data, 
-                       term = &#39;lemma&#39;, 
-                       group = &#39;doc_id&#39;, 
-                       relevant = complaint_data$upos %in% c(&#39;NOUN&#39;, &#39;ADJ&#39;, &#39;VERB&#39;))
-
-stats_chart &lt;- stats %&gt;% 
-  head(15) %&gt;% 
-  arrange(rake) %&gt;%
-  mutate(keyword = factor(keyword, levels = keyword),
-         perf_issue = grepl(&#39;freeze|crash|fix|bug|time|long&#39;, keyword))
-
-# Plot most common key phrases among negative reviews. 
-my_palette &lt;- c(lightblue, blue)
-
-ggplot(stats_chart, aes(x = keyword, y = rake, fill = perf_issue)) + 
-  geom_col() + 
-  labs(title = &#39;Phrases like &quot;keep freeze&quot; or &quot;long time&quot; indicate performance issues.&#39;,
-       subtitle = &#39;Common keywords in negative reviews.&#39;,
-       x = &#39;RAKE&#39;, 
-       y = &#39;Keyword&#39;) + 
-  theme_light() + 
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        legend.position = &#39;none&#39;) +
-  scale_fill_manual(values = my_palette) +
-  coord_flip()</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
+<p>We can also plot common key phrases in a bar plot.
+<img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
 <p>The top phrases relate to the function of the app, but after that, most of the phrases seem related to performance issues. Namely, we can see that words/phrases like “fix bug”, “keep freeze”, and “long time” appear frequently in negative reviews. So it looks like <em>performance issues are the most common complaint in negative reviews.</em></p>
 <p>To summarize our takeaways…</p>
 <p>Q: What’s the #1 problem that users have with the Tapas app?</p>
